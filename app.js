@@ -8,14 +8,29 @@ const { notFound, errorHandler }  = require('./config/errors');
 
 const authRoutes  = require('./routes/auth');
 const bookRoutes  = require('./routes/books');
-const usersRoutes = require('./routes/users');  
+const usersRoutes = require('./routes/users');
+const statsRoutes = require('./routes/stats');
+const extRoutes   = require('./routes/external');
 
-const app    = express();
-const PORT   = process.env.PORT || 3000;
-const ORIGIN = process.env.CORS_ORIGIN || '*';
+const app  = express();
+const PORT = process.env.PORT || 3000;
 
-app.use(cors({ origin: ORIGIN, credentials: true }));
-app.use(express.json({ limit: '2mb' }));
+const ALLOWED = (process.env.CORS_ORIGIN || '')
+  .split(',')
+  .map(s => s.trim())
+  .filter(Boolean);
+
+app.use(cors({
+  origin(origin, cb) 
+  {
+    if (!origin || ALLOWED.includes(origin)) 
+      return cb(null, true);
+    
+    return cb(new Error('Not allowed by CORS'));
+  }
+}));
+
+app.use(express.json({ limit: '3mb' }));
 app.use(morgan('dev'));
 
 app.get('/api/health', (req, res) => res.json({ ok: true }));
@@ -23,12 +38,14 @@ app.get('/api/health', (req, res) => res.json({ ok: true }));
 app.use('/api/auth',  authRoutes);
 app.use('/api/books', bookRoutes);
 app.use('/api/users', usersRoutes);
+app.use('/api/stats', statsRoutes);
+app.use('/api/ext',   extRoutes);
 
 app.use(notFound);
 app.use(errorHandler);
 
 connectDB()
-  .then(() => { app.listen(PORT, () => console.log(`API on http://localhost:${PORT}`)); })
+  .then(() => app.listen(PORT, () => console.log(`API on :${PORT}`)))
   .catch(err => { console.error('DB connect error:', err?.message || err); process.exit(1); });
 
 module.exports = app;
