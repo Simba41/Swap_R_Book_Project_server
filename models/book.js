@@ -6,7 +6,7 @@ const BookSchema = new mongoose.Schema(
   title:   { type: String, required: true },
   author:  { type: String, required: true },
   review:  { type: String, default: '' },
-  cover:   { type: String, default: '' },   
+  cover:   { type: String, default: '' },
   genre:   { type: String, default: '' },
   tags:    { type: [String], default: [] },
   pickup:  { type: String, default: '' },
