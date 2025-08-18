@@ -3,8 +3,8 @@ const express = require('express');
 const cors    = require('cors');
 const morgan  = require('morgan');
 
-const { connectDB }              = require('./db');
-const { notFound, errorHandler } = require('./errors');
+const { connectDB }              = require('./config/db');
+const { notFound, errorHandler } = require('./config/errors');
 
 const authRoutes  = require('./auth');
 const bookRoutes  = require('./books');
