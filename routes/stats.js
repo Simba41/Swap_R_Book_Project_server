@@ -1,5 +1,6 @@
 const express = require('express');
 const Book    = require('../models/book');
+const User    = require('../models/user');
 
 const router = express.Router();
 
@@ -16,24 +17,39 @@ router.get('/books-per-genre', async (req, res, next) =>
   } catch (e) 
   { 
     next(e); 
-}
+  }
 });
 
 router.get('/top-owners', async (req, res, next) => 
 {
-    try 
-    {
-        const lim = Math.min(20, Math.max(1, parseInt(req.query.limit,10)||5));
-        const agg = await Book.aggregate([
-        { $group: { _id: '$ownerId', count: { $sum: 1 } } },
-        { $sort: { count: -1 } },
-        { $limit: lim }
-        ]);
-        res.json({ items: agg });
-    } catch (e) 
-    { 
-        next(e); 
-    }
+  try 
+  {
+    const lim = Math.min(20, Math.max(1, parseInt(req.query.limit,10)||5));
+    const agg = await Book.aggregate([
+      { $group: { _id: '$ownerId', count: { $sum: 1 } } },
+      { $sort: { count: -1 } },
+      { $limit: lim }
+    ]);
+    res.json({ items: agg });
+  } catch (e) 
+  { 
+    next(e); 
+  }
+});
+
+
+router.get('/counts', async (req, res, next) => 
+{
+  try 
+  {
+    const [users, books] = await Promise.all([
+      User.countDocuments(), Book.countDocuments()
+    ]);
+    res.json({ users, books });
+  } catch (e) 
+  { 
+    next(e); 
+  }
 });
 
 module.exports = router;

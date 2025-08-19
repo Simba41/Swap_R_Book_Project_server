@@ -6,33 +6,31 @@ const { authRequired } = require('../middleware/auth');
 const router = express.Router();
 
 router.get('/genres', async (req, res, next) => 
-{
+  {
   try 
   {
     const items = (await Book.distinct('genre')).filter(Boolean).sort();
     res.json({ items });
   } catch (e) 
   { 
-    next(e); 
+    next(e);
   }
 });
 
 router.get('/', async (req, res, next) => 
-{
+  {
   try 
   {
     const { q, genre, owner, ownerId, sort='new', page='1', limit='20' } = req.query;
-
     const filter = {};
-    if (q) filter.$or = 
-    [
+
+    if (q) filter.$or = [
       { title:  { $regex: q, $options: 'i' } },
       { author: { $regex: q, $options: 'i' } }
     ];
 
-
-    if (genre) 
-      filter.genre = genre;
+    if (genre)   filter.genre   = genre;
+    if (ownerId) filter.ownerId = ownerId;
 
     if (owner === 'me' && req.headers.authorization) 
     {
@@ -40,13 +38,7 @@ router.get('/', async (req, res, next) =>
       {
         const payload = jwt.verify((req.headers.authorization||'').replace('Bearer ',''), process.env.JWT_SECRET);
         filter.ownerId = payload.id;
-      } catch 
-      {
-
-      }
-    } else if (ownerId) 
-    {
-      filter.ownerId = ownerId;
+      } catch {}
     }
 
     const pg = Math.max(1, parseInt(page, 10) || 1);
@@ -67,7 +59,7 @@ router.get('/', async (req, res, next) =>
 });
 
 router.get('/:id', async (req, res, next) => 
-{
+  {
   try 
   {
     const book = await Book.findById(req.params.id).populate('ownerId', 'firstName lastName avatar loc');
@@ -83,10 +75,20 @@ router.get('/:id', async (req, res, next) =>
 });
 
 router.post('/', authRequired, async (req, res, next) => 
-{
+  {
   try 
   {
-    const { title, author, review='', cover='', genre='', tags=[], pickup='', loc=null } = req.body || {};
+    const 
+    { 
+      title,
+      author,
+      review='',
+      cover='',
+      genre='',
+      tags=[],
+      pickup='',
+      loc=null 
+    } = req.body || {};
 
     if (!title || !author) 
       return res.status(400).json({ message: 'Title and author are required' });
@@ -100,7 +102,7 @@ router.post('/', authRequired, async (req, res, next) =>
 });
 
 router.put('/:id', authRequired, async (req, res, next) => 
-{
+  {
   try 
   {
     const book = await Book.findById(req.params.id);
@@ -109,30 +111,29 @@ router.put('/:id', authRequired, async (req, res, next) =>
       return res.status(404).json({ message: 'Book not found' });
 
     const isOwner = String(book.ownerId) === req.user.id;
-    theIsAdmin = req.user.role === 'admin';
+    const isAdmin = req.user.role === 'admin';     
 
-    if (!isOwner && !theIsAdmin) 
+    if (!isOwner && !isAdmin) 
       return res.status(403).json({ message: 'Forbidden' });
 
     const fields = ['title','author','review','cover','genre','tags','pickup','loc'];
-
-    fields.forEach(k => { if (k in req.body) book[k] = req.body[k]; });
-
+    fields.forEach(k => 
+    { 
+      if (k in req.body) book[k] = req.body[k];
+    });
     await book.save();
-
     res.json(book);
   } catch (e) 
-  { next(e); 
-
+  { 
+    next(e); 
   }
 });
 
 router.delete('/:id', authRequired, async (req, res, next) => 
-{
+  {
   try 
   {
     const book = await Book.findById(req.params.id);
-
     if (!book) 
       return res.status(404).json({ message: 'Book not found' });
 

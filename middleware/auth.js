@@ -1,22 +1,41 @@
 const jwt = require('jsonwebtoken');
 
-function authRequired(req, res, next)
+function parseToken(req) 
 {
-  const hdr = req.headers.authorization || '';
-  const token = hdr.startsWith('Bearer ') ? hdr.slice(7) : null;
+  const h = req.headers.authorization || '';
 
-  if (!token) 
-    return res.status(401).json({ message: 'Missing token' });
+  if (!h.startsWith('Bearer ')) 
+    return null;
 
-  try 
-  {
-    const payload = jwt.verify(token, process.env.JWT_SECRET);
-    req.user = { id: String(payload.id), role: payload.role || 'user' }; 
-    next();
-  } catch 
-  {
-    return res.status(401).json({ message: 'Invalid token' });
-  }
+  return h.slice(7);
 }
 
-module.exports = { authRequired };
+exports.authRequired = (req, res, next) => 
+  {
+  try 
+  {
+    const token = parseToken(req);
+
+    if (!token) 
+      return res.status(401).json({ message: 'Unauthorized' });
+
+    const payload = jwt.verify(token, process.env.JWT_SECRET);
+    req.user = { id: String(payload.id), role: payload.role || 'user' };
+
+    return next();
+  } catch 
+  {
+    return res.status(401).json({ message: 'Unauthorized' });
+  }
+};
+
+exports.adminRequired = (req, res, next) => 
+  {
+  if (!req.user) 
+    return res.status(401).json({ message: 'Unauthorized' });
+
+  if (req.user.role !== 'admin') 
+    return res.status(403).json({ message: 'Forbidden' });
+  
+  next();
+};

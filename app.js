@@ -1,4 +1,5 @@
 require('dotenv').config();
+
 const express = require('express');
 const cors    = require('cors');
 const morgan  = require('morgan');
@@ -12,6 +13,9 @@ const bookRoutes  = require('./routes/books');
 const usersRoutes = require('./routes/users');
 const statsRoutes = require('./routes/stats');
 const extRoutes   = require('./routes/external');
+const adminRoutes = require('./routes/admin');
+const msgRoutes   = require('./routes/messages');
+const notifRoutes = require('./routes/notifications');
 
 const app  = express();
 const PORT = process.env.PORT || 3000;
@@ -37,14 +41,16 @@ app.use(morgan('dev'));
 // Healthcheck
 app.get('/api/health', (req, res) => res.json({ ok: true }));
 
-// Routes
-app.use('/api/auth',  authRoutes);
-app.use('/api/books', bookRoutes);
-app.use('/api/users', usersRoutes);
-app.use('/api/stats', statsRoutes);
-app.use('/api/ext',   extRoutes);
+app.use('/api/auth',          authRoutes);
+app.use('/api/books',         bookRoutes);
+app.use('/api/users',         usersRoutes);
+app.use('/api/stats',         statsRoutes);
+app.use('/api/ext',           extRoutes);
+app.use('/api/admin',         adminRoutes);
+app.use('/api/messages',      msgRoutes);
+app.use('/api/notifications', notifRoutes);
 
-// Error handlers
+
 app.use(notFound);
 app.use(errorHandler);
 
