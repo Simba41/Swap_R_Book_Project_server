@@ -1,10 +1,12 @@
 const express = require('express');
-const { authRequired, adminRequired } = require('../middleware/auth');
+const { authRequired } = require('../middleware/auth');
 const Notification = require('../models/notification');
 
 const router = express.Router();
+router.use(authRequired);
 
-router.get('/', authRequired, async (req, res, next) => 
+
+router.get('/', async (req, res, next) => 
 {
   try 
   {
@@ -14,23 +16,26 @@ router.get('/', authRequired, async (req, res, next) =>
     if (unreadOnly) q.read = false;
 
     const items = await Notification.find(q).sort({ createdAt: -1 });
-    res.json({ items });
-
+    res.json(items); 
   } catch (e) 
-  { 
-    next(e); 
+  {
+    next(e);
   }
 });
 
-router.post('/:id/read', authRequired, async (req, res, next) => 
+
+router.post('/:id/read', async (req, res, next) => 
 {
   try 
   {
-    await Notification.findOneAndUpdate({ _id: req.params.id, to: req.user.id }, { read: true });
+    await Notification.findOneAndUpdate(
+      { _id: req.params.id, to: req.user.id },
+      { read: true }
+    );
     res.json({ ok: true });
   } catch (e) 
-  { 
-    next(e); 
+  {
+    next(e);
   }
 });
 
