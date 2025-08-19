@@ -9,8 +9,11 @@ const router = express.Router();
 
 function convKey(u1, u2, bookId)
 {
-  return Message.convKey(u1, u2, bookId); 
+  return Message.convKey(u1, u2, bookId);
 }
+
+
+
 
 router.get('/', authRequired, async (req, res, next) =>
 {
@@ -27,35 +30,30 @@ router.get('/', authRequired, async (req, res, next) =>
         { $match: { $or: [ { from: meId }, { to: meId } ] } },
         { $sort: { createdAt: -1 } },
         { $group: {
-            _id: { conv:'$conv' },
+            _id: '$conv',
             lastText: { $first: '$text' },
             updatedAt: { $first: '$createdAt' },
             from: { $first: '$from' },
             to:   { $first: '$to' }
-        }}
+        }
+    }
       ]);
 
-      const items = convs.map(c => (
-      {
-        conv: c._id.conv,
-        lastText: c.lastText,
-        updatedAt: c.updatedAt,
-        from: c.from,
-        to: c.to
-      }));
-
-      return res.json({ items });
+      return res.json({ items: convs });
     }
 
     const conv = convKey(String(req.user.id), String(withId), bookId);
     const items = await Message.find({ conv }).sort({ createdAt: 1 });
     res.json({ items });
   }
-  catch (e)
-  {
-    next(e);
+  catch (e) 
+  { 
+    next(e); 
   }
 });
+
+
+
 
 router.post('/send', authRequired, async (req, res, next) =>
 {
@@ -64,39 +62,42 @@ router.post('/send', authRequired, async (req, res, next) =>
     const { to, book=null, text } = req.body || {};
 
     if (!to || !text)
-      return res.status(400).json({ message: 'to and text required' }); 
+      return res.status(400).json({ message: 'to and text required' });
 
-    const meId   = new mongoose.Types.ObjectId(req.user.id);
-    const toId   = new mongoose.Types.ObjectId(to);     
+    const meId = new mongoose.Types.ObjectId(req.user.id);
+    const toId = new mongoose.Types.ObjectId(to);
 
-    const conv = convKey(String(meId), String(toId), book);  
+    const conv = convKey(String(meId), String(toId), book);
 
     const msg = await Message.create(
     {
       conv,
       book,
-      from: meId,          
-      to: toId,              
+      from: meId,
+      to: toId,
       text,
-      readBy: [String(meId)] 
+      readBy: [meId]
     });
 
     await Notification.create(
     {
-      to: toId,            
+      to: toId,
       type: 'message',
       title: 'New message',
       text,
-      meta: { from: String(meId), book } 
+      meta: { from: String(meId), book }
     });
 
     res.status(201).json(msg);
   }
-  catch (e)
-  {
-    next(e);
+  catch (e) 
+  { 
+    next(e); 
   }
 });
+
+
+
 
 router.get('/admin', authRequired, adminRequired, async (req, res, next) =>
 {
@@ -104,10 +105,13 @@ router.get('/admin', authRequired, adminRequired, async (req, res, next) =>
   {
     const { conv } = req.query || {};
 
-    if (!conv)
-      return res.json({ items: [] }); 
+    if (!conv) 
+      return res.json({ items: [] });
 
-    const items = await Message.find({ conv }).sort({ createdAt: 1 });
+    const items = await Message.find({ conv }).sort({ createdAt: 1 })
+      .populate('from','email firstName lastName')
+      .populate('to','email firstName lastName');
+
     res.json({ items });
   }
   catch (e) 
