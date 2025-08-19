@@ -28,9 +28,6 @@ router.get('/metrics', async (req,res,next)=>
   }
 });
 
-
-
-
 router.get('/users', async (req,res,next)=>
 {
   try 
@@ -41,27 +38,29 @@ router.get('/users', async (req,res,next)=>
     const pg=Math.max(1,parseInt(page,10)||1);
     const lim=Math.min(100,Math.max(1,parseInt(limit,10)||20));
     const skip=(pg-1)*lim;
+
     const [items,total] = await Promise.all([
-      User.find(filter).select('_id firstName lastName email role banned createdAt').sort({createdAt:-1}).skip(skip).limit(lim),
+      User.find(filter)
+          .select('_id firstName lastName email role banned createdAt')
+          .sort({createdAt:-1}).skip(skip).limit(lim),
       User.countDocuments(filter)
     ]);
+
     res.json({ items,total,page:pg,pages:Math.ceil(total/lim) });
-  }catch(e) { next(e); }
+  } catch(e) { next(e); }
 });
 
 router.put('/users/:id/ban',   async(req,res,next)=>
 { 
-    try 
-    { 
-      await User.findByIdAndUpdate(req.params.id,{ banned:true });  
-      res.json({ok:true}); 
-    }catch(e)
-    { 
-      next(e); 
-    }
+  try 
+  { 
+    await User.findByIdAndUpdate(req.params.id,{ banned:true });  
+    res.json({ok:true}); 
+  }catch(e)
+  { 
+    next(e); 
+  }
 });
-
-
 router.put('/users/:id/unban', async(req,res,next)=>
 { 
   try 
@@ -76,17 +75,14 @@ router.put('/users/:id/unban', async(req,res,next)=>
 
 router.get('/books', async (req,res,next)=>
 {
-  try 
-  {
+  try {
     const { q='', ownerId } = req.query;
     const filter={};
     if(ownerId) filter.ownerId=ownerId;
-
     if(q) filter.$or=[{title:{$regex:q,$options:'i'}},{author:{$regex:q,$options:'i'}}];
-
     const items=await Book.find(filter).sort({createdAt:-1}).limit(100);
     res.json({ items });
-  }catch(e) 
+  } catch(e) 
   { 
     next(e); 
   }
@@ -105,7 +101,7 @@ router.get('/reports', async(req,res,next)=>
       Report.countDocuments()
     ]);
     res.json({ items,total,page:pg,pages:Math.ceil(total/lim) });
-  }catch(e) 
+  } catch(e) 
   { 
     next(e); 
   }
@@ -128,51 +124,79 @@ router.get('/changes', async(req,res,next)=>
   try 
   {
     const { page='1', limit='50', userId=null } = req.query;
-    const filter=userId?{userId}:{}; 
+    const filter=userId?{userId}:{};
     const pg=Math.max(1,parseInt(page,10)||1);
     const lim=Math.min(200,Math.max(1,parseInt(limit,10)||50));
     const skip=(pg-1)*lim;
-    const [items,total]=await Promise.all([
+
+    const [items,total]=await Promise.all(
+    [
       Change.find(filter).sort({createdAt:-1}).skip(skip).limit(lim),
       Change.countDocuments(filter)
     ]);
+
     res.json({ items,total,page:pg,pages:Math.ceil(total/lim) });
-  }catch(e) 
+  } catch(e) 
   { 
     next(e); 
   }
 });
 
 
+
+
+router.get('/conversations', async (req,res,next)=>
+{
+  try 
+  {
+    const convs = await Message.aggregate(
+    [
+      { $sort: { createdAt: -1 } },
+      { $group: {
+          _id: '$conv',
+          lastText: { $first: '$text' },
+          from:     { $first: '$from' },
+          to:       { $first: '$to' },
+          updatedAt:{ $first: '$createdAt' }
+      }}
+    ]);
+
+    const ids = [];
+    convs.forEach(c=>{ if(c.from) ids.push(c.from); if(c.to) ids.push(c.to); });
+    const users = await User.find({ _id: { $in: ids } }).select('_id firstName lastName email');
+    const map={}; users.forEach(u=>map[u._id]=u);
+
+    const items = convs.map(c=>({
+      conv: c._id,
+      lastText: c.lastText,
+      updatedAt: c.updatedAt,
+      from: map[c.from]||c.from,
+      to:   map[c.to]  ||c.to
+    }));
+
+    res.json({ items });
+  } catch(e)
+  { 
+    next(e); 
+  }
+});
+
 router.get('/messages', async (req,res,next)=>
 {
   try 
   {
-    const { user, with:withId, book=null, page='1', limit='50', q='' } = req.query||{};
+    const { conv } = req.query;
 
-    // ЕСЛИ user/with не переданы → вернуть общий список всех сообщений
-    if (!user || !withId)
-    {
-      const pg  = Math.max(1, parseInt(page,10)||1);
-      const lim = Math.min(200, Math.max(1, parseInt(limit,10)||50));
-      const skip= (pg-1)*lim;
+    if (!conv) 
+      return res.json({ items:[] });
 
-      const filter = {};
-      if (q) filter.text = { $regex: q, $options:'i' };
+    const items = await Message.find({ conv })
+                               .sort({ createdAt: 1 })
+                               .populate('from','email firstName lastName')
+                               .populate('to','email firstName lastName');
 
-      const [items,total] = await Promise.all([
-        Message.find(filter)
-               .select('_id from to text createdAt')
-               .sort({ createdAt: -1 })
-               .skip(skip).limit(lim)
-               .populate('from','email firstName lastName')
-               .populate('to','email firstName lastName'),
-        Message.countDocuments(filter)
-      ]);
-
-      return res.json({ items, total, page:pg, pages:Math.ceil(total/lim) });
-    }
-  }catch(e) 
+    res.json({ items });
+  } catch(e)
   { 
     next(e); 
   }
