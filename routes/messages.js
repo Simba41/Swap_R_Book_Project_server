@@ -7,27 +7,27 @@ const Notification = require('../models/notification');
 
 const router = express.Router();
 
-function convKey(u1, u2, bookId) 
+function convKey(u1, u2, bookId)
 {
-  return Message.convKey(u1, u2, bookId);
+  return Message.convKey(u1, u2, bookId); 
 }
 
-
-router.get('/', authRequired, async (req, res, next) => 
+router.get('/', authRequired, async (req, res, next) =>
 {
-  try 
+  try
   {
     const withId = req.query.with;
     const bookId = req.query.book || null;
 
-    if (!withId) 
+    if (!withId)
     {
-      
-      const convs = await Message.aggregate([
-        { $match: { $or: [ { from:req.user.id }, { to:req.user.id } ] } },
+      const meId = new mongoose.Types.ObjectId(req.user.id); 
+
+      const convs = await Message.aggregate([                 
+        { $match: { $or: [ { from: meId }, { to: meId } ] } },
         { $sort: { createdAt: -1 } },
         { $group: {
-            _id: { conv:'$conv' },
+            _id: { conv: '$conv' },
             lastText: { $first: '$text' },
             updatedAt: { $first: '$createdAt' }
         }}
@@ -43,64 +43,73 @@ router.get('/', authRequired, async (req, res, next) =>
       return res.json({ items });
     }
 
+    const conv = convKey(String(req.user.id), String(withId), bookId); 
 
-    const conv = convKey(req.user.id, withId, bookId);
-    const items = await Message.find({ conv }).sort({ createdAt: 1 });
+    const items = await Message.find({ conv }).sort({ createdAt: 1 }); 
     res.json({ items });
-  } catch (e) 
-  { 
-    next(e); 
+  }
+  catch (e)
+  {
+    next(e);
   }
 });
 
-
-router.post('/send', authRequired, async (req, res, next) => 
+router.post('/send', authRequired, async (req, res, next) =>
 {
-  try 
+  try
   {
     const { to, book=null, text } = req.body || {};
 
-    if (!to || !text) 
-      return res.status(400).json({ message: 'to and text required' });
+    if (!to || !text)
+      return res.status(400).json({ message: 'to and text required' }); 
 
-    const conv = convKey(req.user.id, to, book);
-    const msg = await Message.create({
+    const meId   = new mongoose.Types.ObjectId(req.user.id);
+    const toId   = new mongoose.Types.ObjectId(to);     
+
+    const conv = convKey(String(meId), String(toId), book);  
+
+    const msg = await Message.create(
+      {
       conv,
       book,
-      from: req.user.id,
-      to,
+      from: meId,          
+      to: toId,              
       text,
-      readBy: [req.user.id]
+      readBy: [String(meId)] 
     });
 
-    await Notification.create({
-      to: new mongoose.Types.ObjectId(to),
+    await Notification.create(
+      {
+      to: toId,            
       type: 'message',
       title: 'New message',
       text,
-      meta: { from: req.user.id, book }
+      meta: { from: String(meId), book } 
     });
 
     res.status(201).json(msg);
-  } catch (e) 
-  { 
-    next(e); 
+  }
+  catch (e)
+  {
+    next(e);
   }
 });
 
-router.get('/admin', authRequired, adminRequired, async (req, res, next) => 
+router.get('/admin', authRequired, adminRequired, async (req, res, next) =>
 {
-  try 
+  try
   {
     const { user, with: withId, book=null } = req.query || {};
-    
-    if (!user || !withId) 
-      return res.json({ items: [] });
 
-    const conv = convKey(user, withId, book);
+    if (!user || !withId)
+      return res.json({ items: [] }); 
+
+    const conv = convKey(String(user), String(withId), book); 
+
     const items = await Message.find({ conv }).sort({ createdAt: 1 });
     res.json({ items });
-  } catch (e) { next(e); }
+  }
+  catch (e) { next(e); }
 });
 
 module.exports = router;
