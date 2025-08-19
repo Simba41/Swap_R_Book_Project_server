@@ -9,11 +9,11 @@ router.get('/genres', async (req, res, next) =>
   {
   try 
   {
-    const items = (await Book.distinct('genre')).filter(Boolean).sort();
+    const items = (await Book.distinct('tags')).filter(Boolean).sort();
     res.json({ items });
   } catch (e) 
   { 
-    next(e);
+    next(e); 
   }
 });
 
