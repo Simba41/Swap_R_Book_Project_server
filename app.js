@@ -15,7 +15,7 @@ const statsRoutes = require('./routes/stats');
 const extRoutes   = require('./routes/external');
 const adminRoutes = require('./routes/admin');
 const msgRoutes   = require('./routes/messages');
-const notifRoutes = require('./routes/notifications');
+const notifRoutes = require('./routes/notification');
 
 const app  = express();
 const PORT = process.env.PORT || 3000;
