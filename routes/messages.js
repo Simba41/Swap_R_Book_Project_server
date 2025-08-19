@@ -13,14 +13,13 @@ function convKey(u1, u2, bookId)
 }
 
 
-
-
 router.get('/', authRequired, async (req, res, next) =>
 {
   try
   {
     const withId = req.query.with;
     const bookId = req.query.book || null;
+
 
     if (!withId)
     {
@@ -31,28 +30,32 @@ router.get('/', authRequired, async (req, res, next) =>
         { $sort: { createdAt: -1 } },
         { $group: {
             _id: '$conv',
-            lastText: { $first: '$text' },
+            lastText:  { $first: '$text' },
             updatedAt: { $first: '$createdAt' },
-            from: { $first: '$from' },
-            to:   { $first: '$to' }
-        }
-    }
+            from:      { $first: '$from' },
+            to:        { $first: '$to' }
+        }}
       ]);
 
-      return res.json({ items: convs });
+
+      const items = convs.map(c => ({
+        conv: c._id,
+        lastText: c.lastText,
+        updatedAt: c.updatedAt,
+        from: c.from,
+        to:   c.to
+      }));
+
+      return res.json({ items });
     }
+
 
     const conv = convKey(String(req.user.id), String(withId), bookId);
     const items = await Message.find({ conv }).sort({ createdAt: 1 });
     res.json({ items });
   }
-  catch (e) 
-  { 
-    next(e); 
-  }
+  catch (e) { next(e); }
 });
-
-
 
 
 router.post('/send', authRequired, async (req, res, next) =>
@@ -60,7 +63,6 @@ router.post('/send', authRequired, async (req, res, next) =>
   try
   {
     const { to, book=null, text } = req.body || {};
-
     if (!to || !text)
       return res.status(400).json({ message: 'to and text required' });
 
@@ -69,18 +71,16 @@ router.post('/send', authRequired, async (req, res, next) =>
 
     const conv = convKey(String(meId), String(toId), book);
 
-    const msg = await Message.create(
-    {
+    const msg = await Message.create({
       conv,
       book,
       from: meId,
-      to: toId,
+      to:   toId,
       text,
       readBy: [meId]
     });
 
-    await Notification.create(
-    {
+    await Notification.create({
       to: toId,
       type: 'message',
       title: 'New message',
@@ -90,13 +90,8 @@ router.post('/send', authRequired, async (req, res, next) =>
 
     res.status(201).json(msg);
   }
-  catch (e) 
-  { 
-    next(e); 
-  }
+  catch (e) { next(e); }
 });
-
-
 
 
 router.get('/admin', authRequired, adminRequired, async (req, res, next) =>
@@ -104,9 +99,7 @@ router.get('/admin', authRequired, adminRequired, async (req, res, next) =>
   try
   {
     const { conv } = req.query || {};
-
-    if (!conv) 
-      return res.json({ items: [] });
+    if (!conv) return res.json({ items: [] });
 
     const items = await Message.find({ conv }).sort({ createdAt: 1 })
       .populate('from','email firstName lastName')
@@ -114,10 +107,7 @@ router.get('/admin', authRequired, adminRequired, async (req, res, next) =>
 
     res.json({ items });
   }
-  catch (e) 
-  { 
-    next(e); 
-  }
+  catch (e) { next(e); }
 });
 
 module.exports = router;

@@ -31,8 +31,6 @@ router.get('/metrics', async (req,res,next) =>
 });
 
 
-
-
 router.get('/users', async (req,res,next) =>
 {
   try
@@ -59,24 +57,15 @@ router.get('/users', async (req,res,next) =>
 
 router.put('/users/:id/ban', async (req,res,next) =>
 {
-  try
-  {
-    await User.findByIdAndUpdate(req.params.id,{ banned:true });
-    res.json({ ok:true });
-  }
+  try { await User.findByIdAndUpdate(req.params.id,{ banned:true }); res.json({ ok:true }); }
   catch(e) { next(e); }
 });
 
 router.put('/users/:id/unban', async (req,res,next) =>
 {
-  try
-  {
-    await User.findByIdAndUpdate(req.params.id,{ banned:false });
-    res.json({ ok:true });
-  }
+  try { await User.findByIdAndUpdate(req.params.id,{ banned:false }); res.json({ ok:true }); }
   catch(e) { next(e); }
 });
-
 
 
 
@@ -86,10 +75,10 @@ router.get('/books', async (req,res,next) =>
   {
     const { q='', ownerId } = req.query;
     const filter = {};
-    if(ownerId) filter.ownerId = ownerId;
-    if(q) filter.$or = [
-      { title: { $regex:q, $options:'i' } },
-      { author:{ $regex:q, $options:'i' } }
+    if (ownerId) filter.ownerId = ownerId;
+    if (q) filter.$or = [
+      { title:  { $regex:q, $options:'i' } },
+      { author: { $regex:q, $options:'i' } }
     ];
 
     const items = await Book.find(filter).sort({ createdAt:-1 }).limit(100);
@@ -97,6 +86,7 @@ router.get('/books', async (req,res,next) =>
   }
   catch(e) { next(e); }
 });
+
 
 
 
@@ -121,11 +111,7 @@ router.get('/reports', async (req,res,next) =>
 
 router.put('/reports/:id/resolve', async (req,res,next) =>
 {
-  try
-  {
-    await Report.findByIdAndUpdate(req.params.id,{ resolved:true });
-    res.json({ ok:true });
-  }
+  try { await Report.findByIdAndUpdate(req.params.id,{ resolved:true }); res.json({ ok:true }); }
   catch(e) { next(e); }
 });
 
@@ -170,12 +156,12 @@ router.get('/conversations', async (req,res,next) =>
     ]);
 
     const ids = [];
-    convs.forEach(c => { if(c.from) ids.push(c.from); if(c.to) ids.push(c.to); });
+    convs.forEach(c => { if (c.from) ids.push(c.from); if (c.to) ids.push(c.to); });
 
     const users = await User.find({ _id: { $in: ids } })
       .select('_id firstName lastName email');
 
-    const map={};
+    const map = {};
     users.forEach(u => { map[u._id] = u; });
 
     const items = convs.map(c => ({
@@ -190,8 +176,6 @@ router.get('/conversations', async (req,res,next) =>
   }
   catch(e) { next(e); }
 });
-
-
 
 
 
