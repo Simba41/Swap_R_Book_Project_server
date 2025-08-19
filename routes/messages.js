@@ -21,15 +21,17 @@ router.get('/', authRequired, async (req, res, next) =>
 
     if (!withId)
     {
-      const meId = new mongoose.Types.ObjectId(req.user.id); 
+      const meId = new mongoose.Types.ObjectId(req.user.id);
 
-      const convs = await Message.aggregate([                 
+      const convs = await Message.aggregate([
         { $match: { $or: [ { from: meId }, { to: meId } ] } },
         { $sort: { createdAt: -1 } },
         { $group: {
-            _id: { conv: '$conv' },
+            _id: { conv:'$conv' },
             lastText: { $first: '$text' },
-            updatedAt: { $first: '$createdAt' }
+            updatedAt: { $first: '$createdAt' },
+            from: { $first: '$from' },
+            to:   { $first: '$to' }
         }}
       ]);
 
@@ -37,15 +39,16 @@ router.get('/', authRequired, async (req, res, next) =>
       {
         conv: c._id.conv,
         lastText: c.lastText,
-        updatedAt: c.updatedAt
+        updatedAt: c.updatedAt,
+        from: c.from,
+        to: c.to
       }));
 
       return res.json({ items });
     }
 
-    const conv = convKey(String(req.user.id), String(withId), bookId); 
-
-    const items = await Message.find({ conv }).sort({ createdAt: 1 }); 
+    const conv = convKey(String(req.user.id), String(withId), bookId);
+    const items = await Message.find({ conv }).sort({ createdAt: 1 });
     res.json({ items });
   }
   catch (e)
@@ -69,7 +72,7 @@ router.post('/send', authRequired, async (req, res, next) =>
     const conv = convKey(String(meId), String(toId), book);  
 
     const msg = await Message.create(
-      {
+    {
       conv,
       book,
       from: meId,          
@@ -79,7 +82,7 @@ router.post('/send', authRequired, async (req, res, next) =>
     });
 
     await Notification.create(
-      {
+    {
       to: toId,            
       type: 'message',
       title: 'New message',
@@ -99,17 +102,18 @@ router.get('/admin', authRequired, adminRequired, async (req, res, next) =>
 {
   try
   {
-    const { user, with: withId, book=null } = req.query || {};
+    const { conv } = req.query || {};
 
-    if (!user || !withId)
+    if (!conv)
       return res.json({ items: [] }); 
-
-    const conv = convKey(String(user), String(withId), book); 
 
     const items = await Message.find({ conv }).sort({ createdAt: 1 });
     res.json({ items });
   }
-  catch (e) { next(e); }
+  catch (e) 
+  { 
+    next(e); 
+  }
 });
 
 module.exports = router;
