@@ -13,7 +13,6 @@ router.use(authRequired, adminRequired);
 
 
 
-
 router.get('/metrics', async (req,res,next) =>
 {
   try
@@ -29,6 +28,7 @@ router.get('/metrics', async (req,res,next) =>
   }
   catch(e) { next(e); }
 });
+
 
 
 router.get('/users', async (req,res,next) =>
@@ -89,7 +89,6 @@ router.get('/books', async (req,res,next) =>
 
 
 
-
 router.get('/reports', async (req,res,next) =>
 {
   try
@@ -116,7 +115,6 @@ router.put('/reports/:id/resolve', async (req,res,next) =>
 });
 
 
-
 router.get('/changes', async (req,res,next) =>
 {
   try
@@ -136,7 +134,6 @@ router.get('/changes', async (req,res,next) =>
   }
   catch(e) { next(e); }
 });
-
 
 
 

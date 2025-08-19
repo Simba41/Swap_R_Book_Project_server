@@ -12,7 +12,6 @@ function convKey(u1, u2, bookId)
   return Message.convKey(u1, u2, bookId);
 }
 
-
 router.get('/', authRequired, async (req, res, next) =>
 {
   try
@@ -20,35 +19,34 @@ router.get('/', authRequired, async (req, res, next) =>
     const withId = req.query.with;
     const bookId = req.query.book || null;
 
-
     if (!withId)
     {
       const meId = new mongoose.Types.ObjectId(req.user.id);
 
       const convs = await Message.aggregate([
         { $match: { $or: [ { from: meId }, { to: meId } ] } },
-        { $sort: { createdAt: -1 } },
+        { $sort:  { createdAt: -1 } },
         { $group: {
-            _id: '$conv',
+            _id:       '$conv',
             lastText:  { $first: '$text' },
             updatedAt: { $first: '$createdAt' },
             from:      { $first: '$from' },
-            to:        { $first: '$to' }
+            to:        { $first: '$to' },
+            book:      { $first: '$book' }
         }}
       ]);
 
-
       const items = convs.map(c => ({
-        conv: c._id,
+        conv:     c._id,
         lastText: c.lastText,
-        updatedAt: c.updatedAt,
-        from: c.from,
-        to:   c.to
+        updatedAt:c.updatedAt,
+        from:     c.from,
+        to:       c.to,
+        book:     c.book || null
       }));
 
       return res.json({ items });
     }
-
 
     const conv = convKey(String(req.user.id), String(withId), bookId);
     const items = await Message.find({ conv }).sort({ createdAt: 1 });
@@ -56,7 +54,6 @@ router.get('/', authRequired, async (req, res, next) =>
   }
   catch (e) { next(e); }
 });
-
 
 router.post('/send', authRequired, async (req, res, next) =>
 {
@@ -71,7 +68,8 @@ router.post('/send', authRequired, async (req, res, next) =>
 
     const conv = convKey(String(meId), String(toId), book);
 
-    const msg = await Message.create({
+    const msg = await Message.create(
+    {
       conv,
       book,
       from: meId,
@@ -80,7 +78,8 @@ router.post('/send', authRequired, async (req, res, next) =>
       readBy: [meId]
     });
 
-    await Notification.create({
+    await Notification.create(
+    {
       to: toId,
       type: 'message',
       title: 'New message',
@@ -92,7 +91,6 @@ router.post('/send', authRequired, async (req, res, next) =>
   }
   catch (e) { next(e); }
 });
-
 
 router.get('/admin', authRequired, adminRequired, async (req, res, next) =>
 {
