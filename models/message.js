@@ -19,7 +19,6 @@ const MessageSchema = new mongoose.Schema(
 { timestamps: true }
 );
 
-// ускоряет историю чатов
 MessageSchema.index({ conv: 1, createdAt: 1 });
 
 MessageSchema.statics.convKey = convKey;

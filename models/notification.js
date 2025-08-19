@@ -9,7 +9,7 @@ const NotificationSchema = new mongoose.Schema(
   meta:  { type: mongoose.Schema.Types.Mixed, default: {} },
   read:  { type: Boolean, default: false, index: true }
 },
-{ timestamps: true } // createdAt / updatedAt
+{ timestamps: true } 
 );
 
 module.exports = mongoose.model('Notification', NotificationSchema);
