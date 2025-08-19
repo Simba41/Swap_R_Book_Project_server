@@ -5,6 +5,8 @@ const User         = require('../models/user');
 const Book         = require('../models/book');
 const Message      = require('../models/message');
 const Notification = require('../models/notification');
+const Report       = require('../models/report'); 
+const Change       = require('../models/change');
 
 const router = express.Router();
 
@@ -143,5 +145,51 @@ router.post('/notify', async (req, res, next) =>
     next(e); 
   }
 });
+
+router.get('/reports', async (req,res,next)=>
+{ 
+  try
+  {
+    const { page='1', limit='50'}=req.query; 
+    const pg=Math.max(1,parseInt(page,10)||1), lim=Math.min(200,Math.max(1,parseInt(limit,10)||50)), skip=(pg-1)*lim;
+    const [items,total]=await Promise.all([ 
+      Report.find({}).sort({createdAt:-1}).skip(skip).limit(lim), 
+      Report.countDocuments({}) 
+    ]); 
+    res.json({items,total,page:pg,pages:Math.ceil(total/lim)}); 
+  }catch(e)
+  { 
+    next(e);
+  } 
+}); 
+
+router.put('/reports/:id/resolve',async(req,res,next)=>
+{ 
+  try
+  { 
+    await Report.findByIdAndUpdate(req.params.id,{resolved:true}); 
+    res.json({ok:true}); 
+  }catch(e)
+  {
+    next(e);
+  } 
+}); 
+
+router.get('/changes', async (req,res,next)=>
+{ 
+  try
+  {
+    const { userId=null,limit='50',page='1'}=req.query; 
+    const filter=userId?{userId}:{};
+    const pg=Math.max(1,parseInt(page,10)||1), lim=Math.min(200,Math.max(1,parseInt(limit,10)||50)), skip=(pg-1)*lim; 
+    const [items,total]=await Promise.all([Change.find(filter).sort({createdAt:-1}).skip(skip).limit(lim),Change.countDocuments(filter)]); 
+    res.json({items,total,page:pg,pages:Math.ceil(total/lim)});
+  }catch(e)
+  { 
+    next(e);
+  } 
+}); 
+
+module.exports = router;
 
 module.exports = router;

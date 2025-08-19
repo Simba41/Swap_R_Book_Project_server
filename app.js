@@ -16,6 +16,7 @@ const extRoutes   = require('./routes/external');
 const adminRoutes = require('./routes/admin');
 const msgRoutes   = require('./routes/messages');
 const notifRoutes = require('./routes/notification');
+const reportRoutes = require('./routes/reports');
 
 const app  = express();
 const PORT = process.env.PORT || 3000;
@@ -51,6 +52,7 @@ app.use('/api/ext',           extRoutes);
 app.use('/api/admin',         adminRoutes);
 app.use('/api/messages',      msgRoutes);
 app.use('/api/notifications', notifRoutes);
+app.use('/api/reports',       reportRoutes);
 
 
 app.use(notFound);
