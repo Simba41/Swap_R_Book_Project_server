@@ -4,7 +4,7 @@ const { authRequired, adminRequired } = require('../middleware/auth');
 const User         = require('../models/user');
 const Book         = require('../models/book');
 const Message      = require('../models/message');
-const Notification = require('../models/notification');
+const Notification = require('../models/notifications');
 
 const router = express.Router();
 
