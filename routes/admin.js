@@ -150,43 +150,28 @@ router.get('/messages', async (req,res,next)=>
   {
     const { user, with:withId, book=null, page='1', limit='50', q='' } = req.query||{};
 
-
-    if (!user || !withId)  
+    // ЕСЛИ user/with не переданы → вернуть общий список всех сообщений
+    if (!user || !withId)
     {
-      const pg  = Math.max(1, parseInt(page,10)||1);              
-      const lim = Math.min(200, Math.max(1, parseInt(limit,10)||50)); 
-      const skip= (pg - 1) * lim;                                 
+      const pg  = Math.max(1, parseInt(page,10)||1);
+      const lim = Math.min(200, Math.max(1, parseInt(limit,10)||50));
+      const skip= (pg-1)*lim;
 
-      const filter = {};                                          
-      if (q) filter.text = { $regex: q, $options: 'i' };           
+      const filter = {};
+      if (q) filter.text = { $regex: q, $options:'i' };
 
-      const base = Message
-        .find(filter)
-        .select('_id from to text book createdAt')                
-        .sort({ createdAt: -1 })
-        .skip(skip)
-        .limit(lim)
-        .populate('from', 'email firstName lastName')            
-        .populate('to',   'email firstName lastName');       
-
-      const [items, total] = await Promise.all(
-      [
-        base.exec(),                                         
-        Message.countDocuments(filter)                        
+      const [items,total] = await Promise.all([
+        Message.find(filter)
+               .select('_id from to text createdAt')
+               .sort({ createdAt: -1 })
+               .skip(skip).limit(lim)
+               .populate('from','email firstName lastName')
+               .populate('to','email firstName lastName'),
+        Message.countDocuments(filter)
       ]);
 
-      return res.json({
-        items,
-        total,
-        page: pg,
-        pages: Math.ceil(total/lim)
-      });                                                     
+      return res.json({ items, total, page:pg, pages:Math.ceil(total/lim) });
     }
-
-
-    const conv = Message.convKey(user, withId, book);
-    const items=await Message.find({ conv }).sort({createdAt:1});
-    res.json({ items });
   }catch(e) 
   { 
     next(e); 
