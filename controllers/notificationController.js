@@ -7,7 +7,8 @@ exports.list = async (req, res, next) =>
   try 
   {
     const { unread, page = '1', limit = '50' } = req.query;
-    const filter = { to: req.user.id };
+
+    const filter = { to: new mongoose.Types.ObjectId(req.user.id) };
 
     if (typeof unread !== 'undefined') 
     {
@@ -37,7 +38,10 @@ exports.list = async (req, res, next) =>
     }));
 
     res.json({ items, total, page: pg, pages: Math.ceil(total / lim) });
-  } catch (e) { next(e); }
+  } catch (e) 
+  {
+    next(e);
+  }
 };
 
 exports.markRead = async (req, res, next) => 
@@ -50,7 +54,7 @@ exports.markRead = async (req, res, next) =>
       throw ApiError.badRequest('Invalid notification id');
 
     const updated = await Notification.findOneAndUpdate(
-      { _id: id, to: req.user.id },
+      { _id: id, to: new mongoose.Types.ObjectId(req.user.id) },
       { read: true },
       { new: true }
     );
@@ -58,8 +62,7 @@ exports.markRead = async (req, res, next) =>
     if (!updated) 
       throw ApiError.notFound('Notification not found');
     
-    res.json(
-    {
+    res.json({
       notification: 
       {
         _id: updated._id,
