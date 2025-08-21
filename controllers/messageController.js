@@ -12,22 +12,30 @@ exports.listConversations = async (req, res, next) =>
     const { page = '1', limit = '50' } = req.query;
     const data = await Message.listConversations(req.user.id, { page, limit });
 
-    const items = data.items.map(c => (
+    const peerIds = data.items.map(c => c.peerId).filter(Boolean);
+    const users = await User.find({ _id: { $in: peerIds } })
+      .select('_id firstName lastName email');
+    const map = {};
+    users.forEach(u => { map[String(u._id)] = u; });
+
+    const items = data.items.map(c => 
     {
-      conv: c.conv,
-      peer: c.peer,                         
-      book: c.book || null,
-      lastText: c.lastMessage?.text || '',
-      updatedAt: c.lastAt,
-      unreadCount: c.unreadCount || 0,
-      lastMessage: c.lastMessage            
-    }));
+      const peerObj = map[String(c.peerId)] || { _id: c.peerId };
+      const bookId  = c.book || c.lastMessage?.book || null;
+      return{
+        conv: c.conv,
+        peer: peerObj,          
+        with: peerObj._id, 
+        book: bookId,
+        lastText: c.lastMessage?.text || '',
+        updatedAt: c.lastAt,
+        unreadCount: c.unreadCount || 0,
+        lastMessage: c.lastMessage
+      };
+    });
 
     res.json({ items, total: data.total, page: data.page, pages: data.pages });
-  } catch (e) 
-  {
-    next(e);
-  }
+  } catch (e) { next(e); }
 };
 
 exports.listThread = async (req, res, next) => 

@@ -17,7 +17,7 @@ const adminRoutes   = require('./routes/admin');
 const msgRoutes     = require('./routes/messages');
 const notifRoutes   = require('./routes/notification');
 const reportRoutes  = require('./routes/reports');
-const swapRoutes = require('./routes/swaps');
+const swapRoutes    = require('./routes/swaps');
 
 const app  = express();
 const PORT = process.env.PORT || 3000;
@@ -39,34 +39,33 @@ app.set('trust proxy', 1);
 
 const ALLOWED = (process.env.CORS_ORIGIN || '')
   .split(',').map(s => s.trim()).filter(Boolean);
-
 app.use(cors(
 {
   origin(origin, cb) 
   {
-    if (!origin || ALLOWED.includes(origin)) return cb(null, true);
+    if (!origin || ALLOWED.includes(origin)) 
+      return cb(null, true);
+
     return cb(new Error('Not allowed by CORS'));
   }
 }));
-
-
 app.use((err, _req, res, next) => 
-{
-  if (err?.message === 'Not allowed by CORS') 
   {
+  if (err?.message === 'Not allowed by CORS')
     return res.status(403).json({ message: 'CORS: origin not allowed' });
-  }
-
   return next(err);
 });
-
 app.options('*', cors());
+
 
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 app.use(morgan('dev'));
 
+
 app.get('/api/health', (req, res) => res.json({ ok: true }));
+app.get('/', (req, res) => res.json({ ok: true, message: 'API is running' }));
+
 
 app.use('/api/auth',          authRoutes);
 app.use('/api/books',         bookRoutes);
@@ -79,12 +78,11 @@ app.use('/api/notifications', notifRoutes);
 app.use('/api/reports',       reportRoutes);
 app.use('/api/swaps',         swapRoutes);
 
+
 app.use(notFound);
 app.use(errorHandler);
 
-app.get('/', (req,res) => {
-  res.json({ ok: true, message: 'API is running' });
-});
+
 connectDB()
   .then(() => app.listen(PORT, () => console.log(`API on :${PORT}`)))
   .catch(err => 
@@ -93,16 +91,11 @@ connectDB()
     process.exit(1);
   });
 
-
 process.on('unhandledRejection', r => console.error('[UNHANDLED]', r));
 process.on('uncaughtException', e => 
-{
-  console.error('[UNCAUGHT]', e);
-  process.exit(1);
+{ 
+  console.error('[UNCAUGHT]', e); 
+  process.exit(1); 
 });
-app.get('/', (req,res) => {
-  res.json({ ok: true, message: 'API is running' });
-});
-
 
 module.exports = app;
