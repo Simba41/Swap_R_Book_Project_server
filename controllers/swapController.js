@@ -2,8 +2,6 @@ const mongoose = require('mongoose');
 const Swap = require('../models/swaps');
 const { ApiError } = require('../config/errors');
 
-
-
 function normalizePair(u1, u2) 
 {
   const [a, b] = [String(u1), String(u2)].sort();
@@ -16,21 +14,23 @@ exports.get = async (req, res, next) =>
   {
     const { with: peer, book } = req.query;
 
-    if (!peer || !book) 
-        throw ApiError.badRequest('Missing params');
+    if (!peer || !book)
+      throw ApiError.badRequest('Missing params');
 
     if (!mongoose.isValidObjectId(peer) || !mongoose.isValidObjectId(book))
       throw ApiError.badRequest('Invalid ids');
 
     const { a, b } = normalizePair(req.user.id, peer);
-
     const swap = await Swap.findOne({ book, userA: a, userB: b });
 
     if (!swap) 
-        return res.json({ meConfirmed: false, otherConfirmed: false });
+    {
+      return res.json({ meConfirmed: false, otherConfirmed: false });
+    }
 
     const meIsA = String(req.user.id) === a;
-    res.json({
+    res.json(
+    {
       meConfirmed: meIsA ? swap.confirmA : swap.confirmB,
       otherConfirmed: meIsA ? swap.confirmB : swap.confirmA
     });
@@ -43,8 +43,8 @@ exports.toggle = async (req, res, next) =>
   {
     const { with: peer, book } = req.body;
 
-    if (!peer || !book) 
-        throw ApiError.badRequest('Missing params');
+    if (!peer || !book)
+      throw ApiError.badRequest('Missing params');
 
     if (!mongoose.isValidObjectId(peer) || !mongoose.isValidObjectId(book))
       throw ApiError.badRequest('Invalid ids');
@@ -66,6 +66,11 @@ exports.toggle = async (req, res, next) =>
     }
     await swap.save();
 
-    res.json({ ok: true });
+    const meIsA = String(req.user.id) === a;
+    res.json(
+    {
+      meConfirmed: meIsA ? swap.confirmA : swap.confirmB,
+      otherConfirmed: meIsA ? swap.confirmB : swap.confirmA
+    });
   } catch (e) { next(e); }
 };
