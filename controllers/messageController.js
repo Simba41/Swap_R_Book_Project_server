@@ -11,11 +11,23 @@ exports.listConversations = async (req, res, next) =>
   {
     const { page = '1', limit = '50' } = req.query;
     const data = await Message.listConversations(req.user.id, { page, limit });
-    res.json(data);
-  } catch (e) 
+
+    const items = data.items.map(c => (
+    {
+      conv: c.conv,
+      with: c.peerId,
+      book: c.book,
+      lastText: c.lastMessage?.text || '',
+      updatedAt: c.lastAt,
+      unreadCount: c.unreadCount || 0
+    }));
+
+    res.json({ items, total: data.total, page: data.page, pages: data.pages });
+  } 
+  catch (e) 
   { 
     next(e); 
-}
+  }
 };
 
 exports.listThread = async (req, res, next) => 
@@ -23,13 +35,19 @@ exports.listThread = async (req, res, next) =>
   try 
   {
     const { with: peer, book = null, page = '1', limit = '50' } = req.query;
-    if (!peer || !isId(peer)) throw ApiError.badRequest('Invalid "with" id');
-    if (book && !isId(book))  throw ApiError.badRequest('Invalid "book" id');
 
-    const data = await Message.listThread(req.user.id, peer, book, { page, limit }); // mark as read
+    if (!peer || !isId(peer)) 
+      throw ApiError.badRequest('Invalid "with" id');
+
+    if (book && !isId(book))  
+      throw ApiError.badRequest('Invalid "book" id');
+
+    const data = await Message.listThread(req.user.id, peer, book, { page, limit }); 
     await Message.markRead(data.conv, req.user.id);
+
     res.json(data);
-  } catch (e) { next(e); }
+  } 
+  catch (e) { next(e); }
 };
 
 exports.send = async (req, res, next) => 
@@ -51,11 +69,12 @@ exports.send = async (req, res, next) =>
     const msg = await Message.send({ from: req.user.id, to, text: String(text).trim(), book: book || null });
 
     
-    await Notification.create(
-    {
+    await Notification.create({
       to,
       type: 'message',
-      data: { title: 'New message', text: msg.text, from: String(req.user.id), book: book || null }
+      title: 'New message',
+      text: msg.text,
+      meta: { from: String(req.user.id), book: book || null }
     });
 
     res.status(201).json({ message: msg });

@@ -20,23 +20,40 @@ exports.list = async (req,res,next) =>
     const { q, genre, owner, ownerId, sort='new', page='1', limit='20' } = req.query;
     const filter = {};
 
-    if (q) filter.$or = [{ title:{ $regex:q,$options:'i' } }, { author:{ $regex:q,$options:'i' } }];
-    if (genre) filter.genre = genre;
+    if (q) 
+      {
+      filter.$or = [
+        { title:  { $regex: q, $options: 'i' } },
+        { author: { $regex: q, $options: 'i' } }
+      ];
+    }
+
+    if (genre) 
+    {
+      filter.$or = [
+        { genre: genre },
+        { tags:  genre }
+      ];
+    }
+
     if (ownerId) filter.ownerId = ownerId;
 
     if (owner === 'me' && req.headers.authorization) 
     {
       try 
       {
-        const payload = jwt.verify((req.headers.authorization||'').replace('Bearer ',''), process.env.JWT_SECRET);
+        const payload = jwt.verify(
+          (req.headers.authorization||'').replace('Bearer ',''), 
+          process.env.JWT_SECRET
+        );
         filter.ownerId = payload.id;
       } catch {}
     }
 
-    const pg = Math.max(1, parseInt(page,10)||1);
-    const lim= Math.min(50, Math.max(1, parseInt(limit,10)||20));
-    const skip=(pg-1)*lim;
-    const sortObj = sort==='old'?{createdAt:1}:{createdAt:-1};
+    const pg   = Math.max(1, parseInt(page,10)||1);
+    const lim  = Math.min(50, Math.max(1, parseInt(limit,10)||20));
+    const skip = (pg-1)*lim;
+    const sortObj = sort==='old' ? { createdAt:1 } : { createdAt:-1 };
 
     const [items,total] = await Promise.all([
       Book.find(filter).sort(sortObj).skip(skip).limit(lim),
@@ -52,7 +69,10 @@ exports.getOne = async (req,res,next) =>
   try 
   {
     const book = await Book.findById(req.params.id).populate('ownerId','firstName lastName avatar loc');
-    if (!book) throw ApiError.notFound('Book not found');
+
+    if (!book) 
+      throw ApiError.notFound('Book not found');
+
     res.json(book);
   } catch(e) { next(e); }
 };
@@ -62,7 +82,10 @@ exports.create = async (req,res,next) =>
   try 
   {
     const { title,author,review='',cover='',genre='',tags=[],pickup='',loc=null } = req.body||{};
-    if (!title || !author) throw ApiError.badRequest('Title and author required');
+
+    if (!title || !author) 
+      throw ApiError.badRequest('Title and author required');
+    
     const book = await Book.create({ ownerId:req.user.id,title,author,review,cover,genre,tags,pickup,loc });
     res.status(201).json(book);
   } catch(e) { next(e); }
