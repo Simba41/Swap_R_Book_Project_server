@@ -1,57 +1,76 @@
 const mongoose = require('mongoose');
-const Report = require('../models/report');
+const Notification = require('../models/notification');
 const { ApiError } = require('../config/errors');
 
-
-
-exports.create = async (req,res,next) => 
+exports.list = async (req, res, next) => 
 {
   try 
   {
-    const { to=null, book=null, text='' } = req.body || {};
+    const { unread, page = '1', limit = '50' } = req.query;
+    const filter = { to: req.user.id };
 
-    if (!text.trim()) 
-        throw ApiError.badRequest('Text required');
-
-    if (to && !mongoose.isValidObjectId(to)) 
-        throw ApiError.badRequest('Invalid "to" id');
-
-    if (book && !mongoose.isValidObjectId(book)) 
-        throw ApiError.badRequest('Invalid "book" id');
-
-    const r = await Report.create(
+    if (typeof unread !== 'undefined') 
     {
-      from: req.user?.id || null,
-      to, book, text
-    });
+      if (unread==='true' || unread==='1') filter.read = false;
+      if (unread==='false' || unread==='0') filter.read = true;
+    }
 
-    res.status(201).json({ report: r });
-  } catch(e) { next(e); }
-};
-
-
-
-
-exports.list = async (req,res,next) => 
-{
-  try 
-  {
-    const { status, page='1', limit='50' } = req.query;
-    const filter = {};
-
-    if (status) filter.status = status;
-
-    const pg  = Math.max(1, parseInt(page,10) || 1);
-    const lim = Math.min(200, Math.max(1, parseInt(limit,10) || 50));
-    const skip= (pg-1)*lim;
+    const pg   = Math.max(1, parseInt(page, 10) || 1);
+    const lim  = Math.min(200, Math.max(1, parseInt(limit, 10) || 50));
+    const skip = (pg - 1) * lim;
 
     const [items,total] = await Promise.all(
-        [
-      Report.find(filter).sort({ createdAt:-1 }).skip(skip).limit(lim),
-      Report.countDocuments(filter),
+    [
+      Notification.find(filter).sort({ createdAt: -1 }).skip(skip).limit(lim),
+      Notification.countDocuments(filter),
     ]);
 
     res.json({ items,total,page:pg,pages:Math.ceil(total/lim) });
+  } catch (e) { next(e); }
+};
+
+exports.markRead = async (req, res, next) => 
+{
+  try 
+  {
+    const { id } = req.params;
+    if (!mongoose.isValidObjectId(id)) 
+      throw ApiError.badRequest('Invalid notification id');
+
+    const updated = await Notification.findOneAndUpdate(
+      { _id: id, to: req.user.id },
+      { read: true },
+      { new: true }
+    );
+    
+    if (!updated) 
+      throw ApiError.notFound('Notification not found');
+
+    res.json({ notification: updated });
+  } catch (e) { next(e); }
+};
+
+exports.create = async (req,res,next) => 
+{
+  try {
+    const { to=null, book=null, text='' } = req.body || {};
+
+    if (!text.trim()) 
+      throw ApiError.badRequest('Text required');
+    if (to && !mongoose.isValidObjectId(to)) 
+      throw ApiError.badRequest('Invalid "to" id');
+    if (book && !mongoose.isValidObjectId(book)) 
+      throw ApiError.badRequest('Invalid "book" id');
+
+    const r = await Report.create(
+    {
+
+      from: req.user?.id || null,
+      to, book, text,
+      status: 'open'
+    });
+
+    res.status(201).json({ text: r.text, status: r.status, _id: r._id });
   } catch(e) { next(e); }
 };
 
@@ -63,15 +82,15 @@ exports.updateStatus = async (req,res,next) =>
     const { status } = req.body;
 
     if (!mongoose.isValidObjectId(id)) 
-        throw ApiError.badRequest('Invalid id');
-
+      throw ApiError.badRequest('Invalid id');
     if (!['open','resolved','rejected'].includes(status)) 
-        throw ApiError.badRequest('Invalid status');
+      throw ApiError.badRequest('Invalid status');
 
     const updated = await Report.findByIdAndUpdate(id, { status }, { new:true });
-    if (!updated) 
-        throw ApiError.notFound('Report not found');
     
-    res.json({ report: updated });
+    if (!updated) 
+      throw ApiError.notFound('Report not found');
+
+    res.json({ text: updated.text, status: updated.status, _id: updated._id });
   } catch(e) { next(e); }
 };

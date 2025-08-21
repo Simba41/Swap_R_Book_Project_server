@@ -5,8 +5,6 @@ const Notification = require('../models/notification');
 const Report = require('../models/report');
 const Change = require('../models/change');
 
-
-
 exports.metrics = async (_req,res,next)=>
 {
   try 
@@ -41,88 +39,90 @@ exports.listUsers = async (req,res,next)=>
   } catch(e){ next(e); }
 };
 
-exports.banUser = async (req,res,next)=>
-{ 
-    try 
-    { 
-        await User.findByIdAndUpdate(req.params.id,{ banned:true }); 
-        res.json({ok:true}); 
-    } catch(e){next(e);} };
-
-
-exports.unbanUser= async (req,res,next)=>
-{ 
-    try 
-    { 
-        await User.findByIdAndUpdate(req.params.id,{ banned:false}); 
-        res.json({ok:true}); 
-    } catch(e){next(e);} };
+exports.banUser = async (req,res,next)=>{ 
+  try 
+  { 
+    await User.findByIdAndUpdate(req.params.id,{ banned:true }); 
+    res.json({ok:true}); 
+  } catch(e){next(e);} 
+};
+exports.unbanUser= async (req,res,next)=>{ 
+  try 
+  { 
+    await User.findByIdAndUpdate(req.params.id,{ banned:false}); 
+    res.json({ok:true}); 
+  } catch(e){next(e);} 
+};
 
 exports.listBooks = async (req,res,next)=>
 {
-  try
+  try 
   {
     const { q='',ownerId }=req.query;
     const filter={};
-
     if(ownerId) filter.ownerId=ownerId;
+
     if(q) filter.$or=[{title:{$regex:q,$options:'i'}},{author:{$regex:q,$options:'i'}}];
-
     const items=await Book.find(filter).sort({createdAt:-1}).limit(100);
-    res.json({ items });
 
+    res.json({ items });
   }catch(e){next(e);}
 };
 
 exports.listReports = async (req,res,next)=>
 {
-  try
+  try 
   {
     const { page='1',limit='50' }=req.query;
     const pg=Math.max(1,parseInt(page,10)||1);
     const lim=Math.min(200,Math.max(1,parseInt(limit,10)||50));
     const skip=(pg-1)*lim;
-    const [items,total]=await Promise.all(
-    [
+    const [items,total]=await Promise.all([
       Report.find({}).sort({createdAt:-1}).skip(skip).limit(lim),
       Report.countDocuments()
     ]);
-    res.json({ items,total,page:pg,pages:Math.ceil(total/lim) });
+    const mapped = items.map(r=>({ _id:r._id, text:r.text, status:r.status }));
+    res.json({ items:mapped,total,page:pg,pages:Math.ceil(total/lim) });
   }catch(e){next(e);}
 };
 
 exports.resolveReport = async (req,res,next)=>
 { 
-    try 
-    { 
-        await Report.findByIdAndUpdate(req.params.id,{ resolved:true }); 
-        res.json({ok:true}); 
-
-    } catch(e){next(e);} };
+  try 
+  { 
+    await Report.findByIdAndUpdate(req.params.id,{ status:'resolved' }); 
+    res.json({ok:true}); 
+  } catch(e){next(e);} 
+};
 
 exports.listChanges = async (req,res,next)=>
 {
-  try
+  try 
   {
     const { page='1',limit='50',userId=null }=req.query;
     const filter=userId?{ userId }: {};
     const pg=Math.max(1,parseInt(page,10)||1);
     const lim=Math.min(200,Math.max(1,parseInt(limit,10)||50));
     const skip=(pg-1)*lim;
-    const [items,total]=await Promise.all(
-    [
+    const [items,total]=await Promise.all([
       Change.find(filter).sort({createdAt:-1}).skip(skip).limit(lim),
       Change.countDocuments(filter)
     ]);
-    res.json({ items,total,page:pg,pages:Math.ceil(total/lim) });
+    const mapped=items.map(c=>({
+      _id:c._id,
+      userId:c.userId,
+      field:c.field || (Object.keys(c.diff||{})[0]||''),
+      from:c.from || (c.diff ? Object.values(c.diff)[0]?.before : ''),
+      to:c.to || (c.diff ? Object.values(c.diff)[0]?.after : ''),
+      createdAt:c.createdAt
+    }));
+    res.json({ items:mapped,total,page:pg,pages:Math.ceil(total/lim) });
   }catch(e){next(e);}
 };
 
-
-
 exports.listConversations = async (_req,res,next)=>
 {
-  try
+  try 
   {
     const convs=await Message.aggregate(
     [
@@ -134,18 +134,17 @@ exports.listConversations = async (_req,res,next)=>
     const map={}; users.forEach(u=>{ map[u._id]=u; });
     const items=convs.map(c=>({ conv:c._id,lastText:c.lastText,updatedAt:c.updatedAt, from:map[c.from]||c.from,to:map[c.to]||c.to }));
     res.json({ items });
-
   }catch(e){next(e);}
 };
 
 exports.listMessages = async (req,res,next)=>
 {
-  try
+  try 
   {
     const { conv }=req.query;
 
     if(!conv) 
-        return res.json({ items:[] });
+      return res.json({ items:[] });
     
     const items=await Message.find({ conv }).sort({createdAt:1})
       .populate('from','email firstName lastName')

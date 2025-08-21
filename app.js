@@ -77,7 +77,7 @@ app.use('/api/admin',         adminRoutes);
 app.use('/api/messages',      msgRoutes);
 app.use('/api/notifications', notifRoutes);
 app.use('/api/reports',       reportRoutes);
-app.use('/api/swaps', swapRoutes);
+app.use('/api/swaps',         swapRoutes);
 
 app.use(notFound);
 app.use(errorHandler);
