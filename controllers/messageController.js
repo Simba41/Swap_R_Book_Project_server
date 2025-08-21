@@ -36,18 +36,18 @@ exports.listThread = async (req, res, next) =>
   {
     const { with: peer, book = null, page = '1', limit = '50' } = req.query;
 
-    if (!peer || !isId(peer)) 
+    if (!peer || !mongoose.isValidObjectId(peer)) 
       throw ApiError.badRequest('Invalid "with" id');
 
-    if (book && !isId(book))  
+    if (book && !mongoose.isValidObjectId(book))  
       throw ApiError.badRequest('Invalid "book" id');
 
-    const data = await Message.listThread(req.user.id, peer, book, { page, limit }); 
+    const data = await Message.listThread(req.user.id, peer, book, { page, limit });
     await Message.markRead(data.conv, req.user.id);
 
-    res.json(data);
-  } 
-  catch (e) { next(e); }
+    const items = Array.isArray(data.items) ? data.items : [];
+    res.json({ ...data, items });
+  } catch (e) { next(e); }
 };
 
 exports.send = async (req, res, next) => 
