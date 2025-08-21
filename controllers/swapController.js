@@ -1,5 +1,5 @@
 const mongoose = require('mongoose');
-const Swap = require('../models/swap');
+const Swap = require('../models/swaps');
 const { ApiError } = require('../config/errors');
 
 
