@@ -11,7 +11,7 @@ const MessageSchema = new Schema(
   conv: { type: String, required: true, index: true },
 
 
-  readBy: [{ type: Schema.Types.ObjectId, ref: 'User' }],ד
+  readBy: [{ type: Schema.Types.ObjectId, ref: 'User' }],
 }, { timestamps: true });
 
 MessageSchema.index({ conv: 1, createdAt: -1 });
