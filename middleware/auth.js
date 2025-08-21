@@ -1,41 +1,37 @@
 const jwt = require('jsonwebtoken');
+const { ApiError } = require('../config/errors');
 
 function parseToken(req) 
 {
   const h = req.headers.authorization || '';
-
-  if (!h.startsWith('Bearer ')) 
-    return null;
-
-  return h.slice(7);
+  return h.startsWith('Bearer ') ? h.slice(7) : null;
 }
 
-exports.authRequired = (req, res, next) => 
-  {
+exports.authRequired = (req, _res, next) => 
+{
   try 
   {
     const token = parseToken(req);
 
     if (!token) 
-      return res.status(401).json({ message: 'Unauthorized' });
+      throw ApiError.unauthorized();
 
-    const payload = jwt.verify(token, process.env.JWT_SECRET);
+    const payload = jwt.verify(token, process.env.JWT_SECRET, { algorithms: ['HS256'] });
     req.user = { id: String(payload.id), role: payload.role || 'user' };
 
-    return next();
-  } catch 
+    next();
+  } catch (err) 
   {
-    return res.status(401).json({ message: 'Unauthorized' });
+    next(ApiError.unauthorized());
   }
 };
 
-exports.adminRequired = (req, res, next) => 
-  {
+exports.adminRequired = (req, _res, next) => 
+{
   if (!req.user) 
-    return res.status(401).json({ message: 'Unauthorized' });
+    return next(ApiError.unauthorized());
 
   if (req.user.role !== 'admin') 
-    return res.status(403).json({ message: 'Forbidden' });
-  
+    return next(ApiError.forbidden());
   next();
 };

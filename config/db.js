@@ -12,7 +12,16 @@ async function connectDB()
 
   try 
   {
-    await mongoose.connect(url, { autoIndex: true, serverSelectionTimeoutMS: 10000 });
+    mongoose.set('strictQuery', true);
+
+    await mongoose.connect(url, 
+    {
+      autoIndex: true,                 
+      maxPoolSize: 10,                 
+      serverSelectionTimeoutMS: 7000, 
+      dbName: process.env.MONGO_DBNAME || undefined,
+    });
+
     console.log('[DB] MongoDB connected');
   } catch (err) 
   {

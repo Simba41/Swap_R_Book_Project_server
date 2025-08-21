@@ -2,14 +2,16 @@ const mongoose = require('mongoose');
 
 const NotificationSchema = new mongoose.Schema(
 {
-  to:    { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, index: true },
-  type:  { type: String, enum: ['message','system','report','other'], default: 'system' },
-  title: { type: String, default: '', trim: true },
-  text:  { type: String, default: '', trim: true },
-  meta:  { type: mongoose.Schema.Types.Mixed, default: {} },
-  read:  { type: Boolean, default: false, index: true }
-},
-{ timestamps: true } 
-);
+  to:   { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, index: true },
+  type: { type: String, required: true, trim: true }, 
+
+  title: { type: String },
+  text:  { type: String },
+  meta:  { type: Object },
+
+  read:  { type: Boolean, default: false, index: true },
+}, { timestamps: true });
+
+NotificationSchema.index({ to: 1, read: 1, createdAt: -1 });
 
 module.exports = mongoose.model('Notification', NotificationSchema);
