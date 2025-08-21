@@ -1,4 +1,3 @@
-// routes/notification.js
 const express = require('express');
 const { authRequired } = require('../middleware/auth');
 const ctrl = require('../controllers/notificationController');
