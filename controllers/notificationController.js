@@ -2,6 +2,8 @@ const mongoose = require('mongoose');
 const Notification = require('../models/notification');
 const { ApiError } = require('../config/errors');
 
+
+
 exports.list = async (req, res, next) => 
 {
   try 
@@ -9,6 +11,7 @@ exports.list = async (req, res, next) =>
     const { unread, page = '1', limit = '50' } = req.query;
 
     const filter = { to: new mongoose.Types.ObjectId(req.user.id) };
+
 
     if (typeof unread !== 'undefined') 
     {
@@ -26,8 +29,7 @@ exports.list = async (req, res, next) =>
       Notification.countDocuments(filter),
     ]);
 
-    const items = docs.map(n => (
-    {
+    const items = docs.map(n => ({
       _id: n._id,
       type: n.type,
       title: n.title || (n.type === 'message' ? 'New message' : 'Notification'),
@@ -35,16 +37,17 @@ exports.list = async (req, res, next) =>
       link: n.link || n.meta?.link || '',
       read: n.read,
       createdAt: n.createdAt,
-      meta: n.meta || {}, 
+      meta: n.meta || {}
     }));
 
     res.json({ items, total, page: pg, pages: Math.ceil(total / lim) });
-  } 
-  catch (e) 
+  } catch (e) 
   {
     next(e);
   }
 };
+
+
 
 exports.markRead = async (req, res, next) => 
 {
@@ -53,18 +56,23 @@ exports.markRead = async (req, res, next) =>
     const { id } = req.params;
 
     if (!mongoose.isValidObjectId(id)) 
+    {
       throw ApiError.badRequest('Invalid notification id');
+    }
 
     const updated = await Notification.findOneAndUpdate(
       { _id: id, to: new mongoose.Types.ObjectId(req.user.id) },
       { read: true },
       { new: true }
     );
-    
+
     if (!updated) 
+    {
       throw ApiError.notFound('Notification not found');
-    
-    res.json({
+    }
+
+    res.json(
+    {
       notification: 
       {
         _id: updated._id,
@@ -74,12 +82,11 @@ exports.markRead = async (req, res, next) =>
         link: updated.link || updated.meta?.link || '',
         read: updated.read,
         createdAt: updated.createdAt,
-        meta: updated.meta || {},
+        meta: updated.meta || {}
       }
     });
-  } 
-  catch (e) 
-  { 
-    next(e); 
+  } catch (e) 
+  {
+    next(e);
   }
 };
