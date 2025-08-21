@@ -12,7 +12,8 @@ exports.listConversations = async (req, res, next) =>
     const { page = '1', limit = '50' } = req.query;
     const data = await Message.listConversations(req.user.id, { page, limit });
 
-    const items = data.items.map(c => ({
+    const items = data.items.map(c => (
+    {
       conv: c.conv,
       peer: c.peer,                         
       book: c.book || null,
@@ -53,41 +54,34 @@ exports.listThread = async (req, res, next) =>
 
 
 
-exports.send = async (req, res, next) => {
-  try {
-    const { to, text, book = null } = req.body || {};
+exports.send = async (req, res, next) => 
+{
+  try 
+  {
+    const { to, text, book=null } = req.body || {};
 
-    if (!to || !text)
+    if (!to || !text)            
       throw ApiError.badRequest('to and text required');
-
-    if (!isId(to))
+    if (!isId(to))               
       throw ApiError.badRequest('Invalid "to" id');
-
-    if (book && !isId(book))
+    if (book && !isId(book))     
       throw ApiError.badRequest('Invalid "book" id');
 
-    const msg = await Message.send(
-    {
-      from: req.user.id,
-      to,
-      text: String(text).trim(),
-      book: book || null
-    });
+    const msg = await Message.send({ from:req.user.id, to, text:String(text).trim(), book:book || null });
+
 
     await Notification.create(
     {
-      to: new mongoose.Types.ObjectId(to),   
+      to: new mongoose.Types.ObjectId(to),
       type: 'message',
       title: 'New message',
-      text: msg.text,
-      meta: { from: String(req.user.id), book: book || null },
+      text: msg.text || '(no text)',
+      meta: { from:String(req.user.id), to:String(to), book:book || null },
       read: false
     });
 
     res.status(201).json({ message: msg });
-  } catch (e) {
-    next(e);
-  }
+  } catch (e) { next(e); }
 };
 
 
@@ -96,19 +90,16 @@ exports.markRead = async (req, res, next) =>
 {
   try 
   {
-    const { with: peer, book = null } = req.query;
+    const { with:peer, book=null } = req.query;
 
-    if (!peer || !isId(peer))
+    if (!peer || !isId(peer))           
       throw ApiError.badRequest('Invalid "with" id');
 
-    if (book && !isId(book))
+    if (book && !isId(book))            
       throw ApiError.badRequest('Invalid "book" id');
 
     const conv = Message.convKey(req.user.id, peer, book);
     const r = await Message.markRead(conv, req.user.id);
-    res.json({ ok: true, ...r });
-  } catch (e) 
-  {
-    next(e);
-  }
+    res.json({ ok:true, ...r });
+  } catch (e) { next(e); }
 };

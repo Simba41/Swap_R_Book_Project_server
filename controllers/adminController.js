@@ -131,6 +131,35 @@ exports.listChanges = async (req, res, next) =>
   } catch (e) { next(e); }
 };
 
+exports.listMessages = async (req, res, next) => {
+  try {
+    const { conv, page='1', limit='200' } = req.query;
+
+    if (conv) {
+      const items = await Message.find({ conv })
+        .sort({ createdAt: 1 })
+        .populate('from','_id firstName lastName email')
+        .populate('to','_id firstName lastName email');
+      return res.json({ items });
+    }
+
+    const pg   = Math.max(1, parseInt(page,10) || 1);
+    const lim  = Math.min(500, Math.max(1, parseInt(limit,10) || 200));
+    const skip = (pg-1)*lim;
+
+    const [items, total] = await Promise.all([
+      Message.find({})
+        .sort({ createdAt:-1 })
+        .skip(skip).limit(lim)
+        .populate('from','_id firstName lastName email')
+        .populate('to','_id firstName lastName email'),
+      Message.countDocuments({})
+    ]);
+
+    res.json({ items, total, page:pg, pages:Math.ceil(total/lim) });
+  } catch (e) { next(e); }
+};
+
 exports.listConversations = async (_req, res, next) => 
 {
   try 
