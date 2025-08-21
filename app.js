@@ -82,7 +82,9 @@ app.use('/api/swaps',         swapRoutes);
 app.use(notFound);
 app.use(errorHandler);
 
-
+app.get('/', (req,res) => {
+  res.json({ ok: true, message: 'API is running' });
+});
 connectDB()
   .then(() => app.listen(PORT, () => console.log(`API on :${PORT}`)))
   .catch(err => 
@@ -98,7 +100,9 @@ process.on('uncaughtException', e =>
   console.error('[UNCAUGHT]', e);
   process.exit(1);
 });
-
+app.get('/', (req,res) => {
+  res.json({ ok: true, message: 'API is running' });
+});
 
 
 module.exports = app;
