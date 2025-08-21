@@ -69,13 +69,15 @@ exports.send = async (req, res, next) =>
     const msg = await Message.send({ from: req.user.id, to, text: String(text).trim(), book: book || null });
 
     
-    await Notification.create({
+    await Notification.create(
+    {
       to,
       type: 'message',
       title: 'New message',
       text: msg.text,
       meta: { from: String(req.user.id), book: book || null }
-    });
+    }
+  );
 
     res.status(201).json({ message: msg });
   } catch (e) { next(e); }
