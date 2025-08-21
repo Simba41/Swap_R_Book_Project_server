@@ -1,7 +1,7 @@
 const mongoose = require('mongoose');
 const Message  = require('../models/message');
-const User     = require('../models/user');
 const Notification = require('../models/notification');
+const User = require('../models/user');
 const { ApiError } = require('../config/errors');
 
 const isId = (x) => mongoose.isValidObjectId(x);
@@ -11,35 +11,50 @@ exports.listConversations = async (req, res, next) =>
   try 
   {
     const { page = '1', limit = '50' } = req.query;
+
+
     const data = await Message.listConversations(req.user.id, { page, limit });
 
+    const peerIds = [...new Set((data.items || [])
+      .map(i => i.peerId)
+      .filter(Boolean)
+      .map(String))];
 
-    const peerIds = [...new Set((data.items || []).map(c => String(c.peerId)).filter(Boolean))];
-    const users   = peerIds.length
+    const users = peerIds.length
       ? await User.find({ _id: { $in: peerIds } }).select('_id firstName lastName email')
       : [];
-    const mapUser = new Map(users.map(u => [String(u._id), u]));
+
+    const uMap = {};
+    users.forEach(u => { uMap[String(u._id)] = u; });
 
     const items = (data.items || []).map(c => {
-      const pid  = String(c.peerId || '');
-      const peer = mapUser.get(pid) || null;
+      const peer = uMap[String(c.peerId)] || null;
       return {
         conv: c.conv,
-        with: pid,            
-        peerId: pid,         
-        peer,               
+     
+        peer: peer ? {
+          _id: peer._id,
+          firstName: peer.firstName || '',
+          lastName:  peer.lastName  || '',
+          email:     peer.email     || ''
+        } : null,
+        with: c.peerId ? String(c.peerId) : '', 
         book: c.book || null,
         lastText: c.lastMessage?.text || '',
-        lastMessage: c.lastMessage || null,
         updatedAt: c.lastAt,
-        unreadCount: c.unreadCount || 0
+        unreadCount: c.unreadCount || 0,
+        lastMessage: c.lastMessage || null
       };
     });
 
-    res.json({ items, total: data.total, page: data.page, pages: data.pages });
-  } catch (e) {
-    next(e);
-  }
+    res.json(
+    {
+      items,
+      total: data.total || items.length,
+      page: data.page || Number(page),
+      pages: data.pages || 1
+    });
+  } catch (e) { next(e); }
 };
 
 exports.listThread = async (req, res, next) => 
@@ -55,13 +70,20 @@ exports.listThread = async (req, res, next) =>
       throw ApiError.badRequest('Invalid "book" id');
 
     const data = await Message.listThread(req.user.id, peer, book, { page, limit });
-    await Message.markRead(data.conv, req.user.id);
 
-    res.json({ ...data, items: Array.isArray(data.items) ? data.items : [] });
-  } catch (e) 
-  {
-    next(e);
-  }
+
+
+    if (data?.conv) 
+    {
+      await Message.markRead(data.conv, req.user.id);
+    }
+
+
+
+    const items = Array.isArray(data.items) ? data.items : [];
+
+    res.json({ ...data, items });
+  } catch (e) { next(e); }
 };
 
 exports.send = async (req, res, next) => 
@@ -87,25 +109,24 @@ exports.send = async (req, res, next) =>
       book: book || null
     });
 
-    
+
+
+    const link = `#/chat?with=${encodeURIComponent(String(to))}${book ? `&book=${encodeURIComponent(String(book))}` : ''}`;
     await Notification.create(
     {
       to: new mongoose.Types.ObjectId(to),
       type: 'message',
       title: 'New message',
       text: msg.text || '(no text)',
-      meta: { from: String(req.user.id), to: String(to), book: book || null },
+      meta: { from: String(req.user.id), to: String(to), book: book || null, link },
       read: false
     });
 
     res.status(201).json({ message: msg });
-  } catch (e) 
-  {
-    next(e);
-  }
+  } catch (e) { next(e); }
 };
 
-exports.markRead = async (req, res, next) =>   
+exports.markRead = async (req, res, next) => 
 {
   try 
   {
@@ -120,8 +141,5 @@ exports.markRead = async (req, res, next) =>
     const conv = Message.convKey(req.user.id, peer, book);
     const r = await Message.markRead(conv, req.user.id);
     res.json({ ok: true, ...r });
-  } catch (e) 
-  {
-    next(e);
-  }
-};
+  } catch (e) { next(e); }
+}

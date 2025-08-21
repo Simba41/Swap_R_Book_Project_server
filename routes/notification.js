@@ -1,13 +1,12 @@
+// server/routes/notification.js
 const express = require('express');
 const { authRequired } = require('../middleware/auth');
 const ctrl = require('../controllers/notificationController');
 
 const r = express.Router();
-r.use(authRequired);
 
-r.get('/', ctrl.list);
-
-r.put('/read-all', ctrl.markAllRead);
-r.put('/:id/read', ctrl.markRead);
+r.get('/',               authRequired, ctrl.list);
+r.put('/read-all',       authRequired, ctrl.markAllRead);       // <-- BEFORE :id
+r.put('/:id/read',       authRequired, ctrl.markRead);
 
 module.exports = r;

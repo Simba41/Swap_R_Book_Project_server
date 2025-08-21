@@ -32,8 +32,7 @@ exports.listUsers = async (req, res, next) =>
     const skip = (pg - 1) * lim;
     const [items, total] = await Promise.all(
     [
-      User.find(filter).select('_id firstName lastName email role banned createdAt')
-          .sort({ createdAt: -1 }).skip(skip).limit(lim),
+      User.find(filter).select('_id firstName lastName email role banned createdAt').sort({ createdAt: -1 }).skip(skip).limit(lim),
       User.countDocuments(filter)
     ]);
     res.json({ items, total, page: pg, pages: Math.ceil(total / lim) });
@@ -42,20 +41,14 @@ exports.listUsers = async (req, res, next) =>
 
 exports.banUser = async (req, res, next) => 
 {
-  try 
-  {
-    await User.findByIdAndUpdate(req.params.id, { banned: true });
-    res.json({ ok: true });
-  } catch (e) { next(e); }
+  try { await User.findByIdAndUpdate(req.params.id, { banned: true }); res.json({ ok: true }); }
+  catch (e) { next(e); }
 };
 
 exports.unbanUser = async (req, res, next) => 
 {
-  try 
-  {
-    await User.findByIdAndUpdate(req.params.id, { banned: false });
-    res.json({ ok: true });
-  } catch (e) { next(e); }
+  try { await User.findByIdAndUpdate(req.params.id, { banned: false }); res.json({ ok: true }); }
+  catch (e) { next(e); }
 };
 
 exports.listBooks = async (req, res, next) => 
@@ -66,9 +59,12 @@ exports.listBooks = async (req, res, next) =>
     const filter = {};
 
     if (ownerId) filter.ownerId = ownerId;
+
     if (q) filter.$or = [{ title: { $regex: q, $options: 'i' } }, { author: { $regex: q, $options: 'i' } }];
+
     const items = await Book.find(filter).sort({ createdAt: -1 }).limit(100);
     res.json({ items });
+
   } catch (e) { next(e); }
 };
 
@@ -101,10 +97,11 @@ exports.listReports = async (req, res, next) =>
 exports.resolveReport = async (req, res, next) => 
 {
   try 
-  {
-    await Report.findByIdAndUpdate(req.params.id, { status: 'resolved' });
-    res.json({ ok: true });
-  } catch (e) { next(e); }
+  { 
+    await Report.findByIdAndUpdate(req.params.id, { status: 'resolved' }); 
+    res.json({ ok: true }); 
+  }
+  catch (e) { next(e); }
 };
 
 exports.listChanges = async (req, res, next) => 
@@ -137,32 +134,20 @@ exports.listChanges = async (req, res, next) =>
   } catch (e) { next(e); }
 };
 
+
+
 exports.listConversations = async (_req, res, next) => 
 {
-  try 
+  try
   {
     const convs = await Message.aggregate(
     [
       { $sort: { createdAt: -1 } },
-      {
-        $group: 
-        {
-          _id: '$conv',
-          lastText: { $first: '$text' },
-          from: { $first: '$from' },
-          to: { $first: '$to' },
-          updatedAt: { $first: '$createdAt' }
-        }
-      }
+      { $group: { _id: '$conv', lastText: { $first: '$text' }, from: { $first: '$from' }, to: { $first: '$to' }, updatedAt: { $first: '$createdAt' } } }
     ]);
 
     const ids = [];
-    convs.forEach(c => 
-    { 
-      if (c.from) ids.push(c.from); 
-      if (c.to) ids.push(c.to); 
-    });
-
+    convs.forEach(c => { if (c.from) ids.push(c.from); if (c.to) ids.push(c.to); });
     const users = await User.find({ _id: { $in: ids } }).select('_id firstName lastName email');
     const map = {}; users.forEach(u => { map[u._id] = u; });
 
@@ -179,36 +164,39 @@ exports.listConversations = async (_req, res, next) =>
   } catch (e) { next(e); }
 };
 
-exports.listMessages = async (req, res, next) => 
+
+
+
+exports.listMessages = async (req, res, next) =>
 {
   try 
   {
-    const { conv, page = '1', limit = '200' } = req.query;
+    const { conv, page='1', limit='200' } = req.query;
 
     if (conv) 
     {
       const items = await Message.find({ conv })
         .sort({ createdAt: 1 })
-        .populate('from', '_id firstName lastName email')
-        .populate('to',   '_id firstName lastName email');
-
-      return res.json({ items });
+        .populate('from','_id firstName lastName email')
+        .populate('to','_id firstName lastName email');
+      return res.json({ items, total: items.length, page: 1, pages: 1 });
     }
 
-    const pg   = Math.max(1, parseInt(page, 10) || 1);
-    const lim  = Math.min(500, Math.max(1, parseInt(limit, 10) || 200));
-    const skip = (pg - 1) * lim;
+
+    const pg   = Math.max(1, parseInt(page,10) || 1);
+    const lim  = Math.min(500, Math.max(1, parseInt(limit,10) || 200));
+    const skip = (pg-1)*lim;
 
     const [items, total] = await Promise.all(
     [
       Message.find({})
-        .sort({ createdAt: -1 })
+        .sort({ createdAt:-1 })
         .skip(skip).limit(lim)
-        .populate('from', '_id firstName lastName email')
-        .populate('to',   '_id firstName lastName email'),
+        .populate('from','_id firstName lastName email')
+        .populate('to','_id firstName lastName email'),
       Message.countDocuments({})
     ]);
 
-    res.json({ items, total, page: pg, pages: Math.ceil(total / lim) });
+    res.json({ items, total, page:pg, pages:Math.ceil(total/lim) });
   } catch (e) { next(e); }
 };

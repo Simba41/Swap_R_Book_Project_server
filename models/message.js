@@ -1,125 +1,86 @@
+// server/models/message.js
 const mongoose = require('mongoose');
+const { Schema } = mongoose;
 
-const MessageSchema = new mongoose.Schema(
-  {
-  from:  { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, index: true },
-  to:    { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, index: true },
-  book:  { type: mongoose.Schema.Types.ObjectId, ref: 'Book', default: null, index: true },
-  conv:  { type: String, index: true },
-  text:  { type: String, trim: true, default: '' },
-  readBy:{ type: [mongoose.Schema.Types.ObjectId], default: [], index: true },
+const MessageSchema = new Schema(
+{
+  from: { type: Schema.Types.ObjectId, ref: 'User', required: true, index: true },
+  to:   { type: Schema.Types.ObjectId, ref: 'User', required: true, index: true },
+  text: { type: String, required: true, trim: true },
+  book: { type: Schema.Types.ObjectId, ref: 'Book', default: null, index: true },
+
+  conv: { type: String, required: true, index: true },
+
+
+  readBy: [{ type: Schema.Types.ObjectId, ref: 'User' }],
 }, { timestamps: true });
 
-MessageSchema.index({ conv: 1, createdAt: 1 });
+MessageSchema.index({ conv: 1, createdAt: -1 });
 MessageSchema.index({ from: 1, to: 1, createdAt: -1 });
 
-function convKey(a, b, bookId = null) 
-{
-  const x = String(a), y = String(b);
-  const min = x < y ? x : y;
-  const max = x < y ? y : x;
-  const bk  = bookId ? String(bookId) : '-';
-  return `${min}_${max}_${bk}`;
-}
 
-MessageSchema.pre('save', function(next) 
+MessageSchema.statics.convKey = function(u1, u2, bookId = null) 
 {
-  if (!this.conv) this.conv = convKey(this.from, this.to, this.book);
+  const a = String(u1);
+  const b = String(u2);
+  const [x, y] = a < b ? [a, b] : [b, a];
+  return bookId ? `${x}_${y}_${String(bookId)}` : `${x}_${y}`;
+};
+
+MessageSchema.pre('validate', function(next) 
+{
+  if (!this.conv) 
+  {
+    this.conv = mongoose.model('Message').convKey(this.from, this.to, this.book || null);
+  }
+
+  if (!Array.isArray(this.readBy)) this.readBy = [];
   next();
 });
 
-MessageSchema.statics.convKey = convKey;
-
-MessageSchema.statics.listConversations = async function(userId, { page = 1, limit = 50 } = {}) 
+MessageSchema.statics.send = async function({ from, to, text, book = null }) 
 {
-  const uid  = new mongoose.Types.ObjectId(userId);
-  const pg   = Math.max(1, parseInt(page, 10) || 1);
-  const lim  = Math.min(200, Math.max(1, parseInt(limit, 10) || 50));
+  const Message = this;
+  const conv = Message.convKey(from, to, book || null);
+  const doc = await Message.create({ from, to, text: String(text).trim(), book: book || null, conv });
+  return doc;
+};
+
+
+MessageSchema.statics.markRead = async function(conv, userId) 
+{
+  const Message = this;
+  const uid = new mongoose.Types.ObjectId(userId);
+  const res = await Message.updateMany(
+    { conv, to: uid, readBy: { $ne: uid } },
+    { $addToSet: { readBy: uid } }
+  );
+  return { modified: res.modifiedCount ?? res.nModified ?? 0 };
+};
+
+
+MessageSchema.statics.listThread = async function(me, peer, book = null, { page='1', limit='50' } = {}) {
+  const Message = this;
+  const meId   = new mongoose.Types.ObjectId(me);
+  const peerId = new mongoose.Types.ObjectId(peer);
+  const conv   = Message.convKey(meId, peerId, book || null);
+
+  const pg   = Math.max(1, parseInt(page,10) || 1);
+  const lim  = Math.min(200, Math.max(1, parseInt(limit,10) || 50));
   const skip = (pg - 1) * lim;
 
-  const pipeline = 
+  const [items, total] = await Promise.all(
   [
-    { $match: { $or: [{ from: uid }, { to: uid }] } },
-    { $sort: { createdAt: -1 } },
-    { $group: 
-      {
-        _id: '$conv',
-        lastMessage: { $first: '$$ROOT' },
-        lastAt: { $first: '$createdAt' },
-        unreadCount: 
-        {
-          $sum: 
-          {
-            $cond: 
-            [
-              { $and: 
-                [
-                { $eq: ['$to', uid] },
-                { $not: { $in: [uid, '$readBy'] } }
-              ]},
-              1, 0
-            ]
-          }
-        }
-      }
-    },
-    { $addFields: 
-      {
-        peerId: 
-        {
-          $cond: 
-          [
-            { $eq: ['$lastMessage.from', uid] },
-            '$lastMessage.to',
-            '$lastMessage.from'
-          ]
-        }
-      }
-    },
-    { $sort: { lastAt: -1 } },
-    { $skip: skip },
-    { $limit: lim }
-  ];
-
-  const items = await this.aggregate(pipeline);
-
-  const ids = [];
-  items.forEach(c => 
-  {
-    if (c.lastMessage.from) ids.push(c.lastMessage.from);
-    if (c.lastMessage.to) ids.push(c.lastMessage.to);
-    if (c.peerId) ids.push(c.peerId);
-  });
-
-  const users = await mongoose.model('User').find({ _id: { $in: ids } })
-    .select('_id firstName lastName email');
-
-  const map = {};
-  users.forEach(u => { map[String(u._id)] = u; });
-
-  const totalAgg = await this.aggregate(
-  [
-    { $match: { $or: [{ from: uid }, { to: uid }] } },
-    { $group: { _id: '$conv' } },
-    { $count: 'total' }
+    Message.find({ conv }).sort({ createdAt: 1 })
+      .populate('from', 'firstName lastName email')
+      .populate('to',   'firstName lastName email')
+      .skip(skip).limit(lim),
+    Message.countDocuments({ conv })
   ]);
-  const total = totalAgg[0]?.total || 0;
 
   return {
-    items: items.map(c => (
-    {
-      conv: c._id,
-      peer: map[String(c.peerId)] || c.peerId,
-      lastAt: c.lastAt,
-      unreadCount: c.unreadCount,
-      lastMessage: {
-        _id: c.lastMessage._id,
-        from: map[String(c.lastMessage.from)] || c.lastMessage.from,
-        to:   map[String(c.lastMessage.to)] || c.lastMessage.to,
-        text: c.lastMessage.text,
-        createdAt: c.lastMessage.createdAt
-      }
-    })),
+    conv,
+    items,
     total,
     page: pg,
     pages: Math.ceil(total / lim)
@@ -127,44 +88,88 @@ MessageSchema.statics.listConversations = async function(userId, { page = 1, lim
 };
 
 
-MessageSchema.statics.listThread = async function(userId, peerId, bookId = null, { page = 1, limit = 50 } = {}) {
-  const key = convKey(userId, peerId, bookId);
-  const pg  = Math.max(1, parseInt(page, 10) || 1);
-  const lim = Math.min(200, Math.max(1, parseInt(limit, 10) || 50));
-  const skip= (pg - 1) * lim;
 
-  const [items, total] = await Promise.all([
-    this.find({ conv: key })
-      .sort({ createdAt: 1 })
-      .skip(skip)
-      .limit(lim)
-      .populate('from', '_id firstName lastName email')
-      .populate('to', '_id firstName lastName email'),
-    this.countDocuments({ conv: key })
+
+MessageSchema.statics.listConversations = async function(me, { page='1', limit='50' } = {}) 
+{
+  const Message = this;
+  const meId = new mongoose.Types.ObjectId(me);
+
+  const pg   = Math.max(1, parseInt(page,10) || 1);
+  const lim  = Math.min(200, Math.max(1, parseInt(limit,10) || 50));
+  const skip = (pg - 1) * lim;
+
+
+  const totalAgg = await Message.aggregate(
+  [
+    { $match: { $or: [ { from: meId }, { to: meId } ] } },
+    { $group: { _id: '$conv' } },
+    { $count: 'n' }
   ]);
+  const totalConvs = (totalAgg[0]?.n) || 0;
 
-  return { items, total, page: pg, pages: Math.ceil(total / lim), conv: key };
-};
+  const pipeline = 
+  [
+    { $match: { $or: [ { from: meId }, { to: meId } ] } },
+    { $sort: { createdAt: -1 } },
+    { $addFields: { peerCandidate: { $cond: [ { $eq: ['$from', meId] }, '$to', '$from' ] } } },
+    { $group: 
+      {
+        _id: '$conv',
+        lastMessage: { $first: '$$ROOT' },
+        lastAt:      { $first: '$createdAt' },
+        peerId:      { $first: '$peerCandidate' },
+        book:        { $first: '$book' },
+        unreadCount: { $sum: 
+        {
+          $cond: 
+          [
+            { $and: 
+              [
+              { $eq: ['$to', meId] },
+              { $not: [ { $in: [ meId, '$readBy' ] } ] }
+            ] },
+            1, 0
+          ]
+        } }
+    } },
+    { $lookup: { from: 'users', localField: 'peerId', foreignField: '_id', as: 'peer' } },
+    { $unwind: { path: '$peer', preserveNullAndEmptyArrays: true } },
+    { $project: 
+      {
+        conv: '$_id',
+        with: '$peerId',         
+        peer: 
+        {
+          _id: '$peer._id',
+          firstName: '$peer.firstName',
+          lastName:  '$peer.lastName',
+          email:     '$peer.email',
+        },
+        book: 1,
+        lastAt: 1,
+        unreadCount: 1,
+        lastMessage: 
+        {
+          _id: '$lastMessage._id',
+          text: '$lastMessage.text',
+          from: '$lastMessage.from',
+          to:   '$lastMessage.to',
+          createdAt: '$lastMessage.createdAt'
+        }
+    } },
+    { $sort: { lastAt: -1, conv: 1 } },
+    { $skip: skip },
+    { $limit: lim }
+  ];
 
-MessageSchema.statics.send = function({ from, to, text, book = null }) 
-{
-  return this.create(
-  {
-    from, to, text,
-    book: book || null,
-    conv: convKey(from, to, book),
-    readBy: [new mongoose.Types.ObjectId(from)]
-  });
-};
-
-MessageSchema.statics.markRead = async function(conv, userId) 
-{
-  const uid = new mongoose.Types.ObjectId(userId);
-  const res = await this.updateMany(
-    { conv, to: uid, readBy: { $ne: uid } },
-    { $addToSet: { readBy: uid } }
-  );
-  return { matched: res.matchedCount ?? res.n, modified: res.modifiedCount ?? res.nModified };
+  const items = await Message.aggregate(pipeline);
+  return {
+    items,
+    total: totalConvs,
+    page: pg,
+    pages: Math.ceil(totalConvs / lim)
+  };
 };
 
 module.exports = mongoose.model('Message', MessageSchema);
