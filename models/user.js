@@ -3,22 +3,16 @@ const bcrypt   = require('bcryptjs');
 
 const UserSchema = new mongoose.Schema(
 {
-  firstName: { type: String, trim: true, default: '' },
-  lastName:  { type: String, trim: true, default: '' },
+  firstName: { type: String, trim: true },
+  lastName:  { type: String, trim: true },
   email:     { type: String, required: true, unique: true, lowercase: true, trim: true },
   password:  { type: String, required: true },
   avatar:    { type: String, default: '' },
-
-  loc: { lat: { type: Number }, lng: { type: Number } },
-
-  bio:    { type: String, default: '' },
-  role:   { type: String, enum: ['user','admin'], default: 'user' }, 
-  banned: { type: Boolean, default: false }
+  loc:       { type: { lat: Number, lng: Number }, default: null },
+  bio:       { type: String, default: '' },
+  role:      { type: String, enum:['user','admin'], default: 'user' },
+  banned:    { type: Boolean, default: false }
 }, { timestamps: true });
-
-UserSchema.index({ email: 1 }, { unique: true });
-UserSchema.index({ role: 1 });
-UserSchema.index({ createdAt: -1 });
 
 UserSchema.pre('save', async function(next) 
 {
@@ -36,9 +30,6 @@ UserSchema.methods.comparePassword = function(candidate)
 {
   return bcrypt.compare(candidate, this.password);
 };
-
-
-
 
 UserSchema.methods.toJSON = function() 
 {

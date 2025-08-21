@@ -1,4 +1,3 @@
-const bcrypt = require('bcryptjs');
 const jwt    = require('jsonwebtoken');
 const User   = require('../models/user');
 const { ApiError } = require('../config/errors');
@@ -17,8 +16,7 @@ exports.register = async (req,res,next) =>
     if (exists) 
         throw ApiError.badRequest('Email already registered');
 
-    const hash = await bcrypt.hash(password, 10);
-    const user = await User.create({ firstName, lastName, email, password: hash });
+    const user = await User.create({ firstName, lastName, email, password });
 
     const token = jwt.sign({ id: user._id, role: user.role }, process.env.JWT_SECRET, { expiresIn: '7d' });
     res.json({ token, user: { id:user._id, firstName, lastName, email, role:user.role } });
@@ -39,7 +37,7 @@ exports.login = async (req,res,next) =>
     if (user.banned) 
         throw ApiError.forbidden('Account banned');
 
-    const ok = await bcrypt.compare(password, user.password);
+    const ok = await user.comparePassword(password);  
 
     if (!ok) 
         throw ApiError.unauthorized('Invalid credentials');
