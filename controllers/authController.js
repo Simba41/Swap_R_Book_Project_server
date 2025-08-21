@@ -24,18 +24,18 @@ exports.register = async (req,res,next) =>
     email = email.toLowerCase();
 
     const exists = await User.findOne({ email });
-    if (exists) throw ApiError.badRequest('Email already registered');
+    
+    if (exists) 
+      throw ApiError.badRequest('Email already registered');
 
-    const hash = await bcrypt.hash(password, 10);
-    const user = await User.create({ firstName, lastName, email, password: hash });
+    const user = await User.create({ firstName, lastName, email, password });
 
     const token = signToken(user);
     res.status(201).json({ 
       token, 
       user: { id:user._id, firstName, lastName, email, role:user.role } 
     });
-  } 
-  catch(e) { next(e); }
+  } catch(e) { next(e); }
 };
 
 exports.login = async (req,res,next) => 
