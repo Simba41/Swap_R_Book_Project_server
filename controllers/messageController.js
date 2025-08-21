@@ -53,10 +53,8 @@ exports.listThread = async (req, res, next) =>
 
 
 
-exports.send = async (req, res, next) => 
-{
-  try 
-  {
+exports.send = async (req, res, next) => {
+  try {
     const { to, text, book = null } = req.body || {};
 
     if (!to || !text)
@@ -76,20 +74,18 @@ exports.send = async (req, res, next) =>
       book: book || null
     });
 
-
-
     await Notification.create(
     {
-      to,
+      to: new mongoose.Types.ObjectId(to),   
       type: 'message',
       title: 'New message',
       text: msg.text,
-      meta: { from: String(req.user.id), book: book || null }
+      meta: { from: String(req.user.id), book: book || null },
+      read: false
     });
 
     res.status(201).json({ message: msg });
-  } catch (e) 
-  {
+  } catch (e) {
     next(e);
   }
 };
