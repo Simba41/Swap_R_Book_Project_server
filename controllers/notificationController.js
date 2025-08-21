@@ -31,14 +31,16 @@ exports.list = async (req, res, next) =>
       _id: n._id,
       type: n.type,
       title: n.title || (n.type === 'message' ? 'New message' : 'Notification'),
-      text: n.text || '',
-      link: n.meta?.link || '',
+      text: n.text || n.meta?.text || '',
+      link: n.link || n.meta?.link || '',
       read: n.read,
       createdAt: n.createdAt,
+      meta: n.meta || {}, 
     }));
 
     res.json({ items, total, page: pg, pages: Math.ceil(total / lim) });
-  } catch (e) 
+  } 
+  catch (e) 
   {
     next(e);
   }
@@ -68,11 +70,16 @@ exports.markRead = async (req, res, next) =>
         _id: updated._id,
         type: updated.type,
         title: updated.title || (updated.type === 'message' ? 'New message' : 'Notification'),
-        text: updated.text || '',
-        link: updated.meta?.link || '',
+        text: updated.text || updated.meta?.text || '',
+        link: updated.link || updated.meta?.link || '',
         read: updated.read,
         createdAt: updated.createdAt,
+        meta: updated.meta || {},
       }
     });
-  } catch (e) { next(e); }
+  } 
+  catch (e) 
+  { 
+    next(e); 
+  }
 };
