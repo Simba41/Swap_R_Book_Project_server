@@ -1,4 +1,3 @@
-const jwt = require('jsonwebtoken');
 const { ApiError } = require('../config/errors');
 
 function parseToken(req) 
