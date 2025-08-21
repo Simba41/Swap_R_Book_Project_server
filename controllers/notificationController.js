@@ -1,3 +1,4 @@
+
 const mongoose = require('mongoose');
 const Notification = require('../models/notification');
 const { ApiError } = require('../config/errors');
@@ -7,7 +8,6 @@ exports.list = async (req, res, next) =>
   try 
   {
     const { unread, page='1', limit='50' } = req.query;
-
     const filter = { to: new mongoose.Types.ObjectId(req.user.id) };
     if (typeof unread !== 'undefined') 
     {
@@ -17,9 +17,9 @@ exports.list = async (req, res, next) =>
 
     const pg   = Math.max(1, parseInt(page,10) || 1);
     const lim  = Math.min(200, Math.max(1, parseInt(limit,10) || 50));
-    const skip = (pg-1)*lim;
+    const skip = (pg - 1) * lim;
 
-    const [docs,total] = await Promise.all(
+    const [docs, total] = await Promise.all(
     [
       Notification.find(filter).sort({ createdAt:-1 }).skip(skip).limit(lim),
       Notification.countDocuments(filter),
@@ -37,7 +37,7 @@ exports.list = async (req, res, next) =>
       meta: n.meta || {}
     }));
 
-    res.json({ items, total, page:pg, pages:Math.ceil(total/lim) });
+    res.json({ items, total, page: pg, pages: Math.ceil(total/lim) });
   } catch (e) { next(e); }
 };
 
@@ -47,28 +47,32 @@ exports.markRead = async (req, res, next) =>
   {
     const { id } = req.params;
 
-    if (!mongoose.isValidObjectId(id))
+    if (!mongoose.isValidObjectId(id)) 
       throw ApiError.badRequest('Invalid notification id');
 
     const updated = await Notification.findOneAndUpdate(
-      { _id:id, to:new mongoose.Types.ObjectId(req.user.id) },
-      { read:true }, { new:true }
+      { _id: id, to: new mongoose.Types.ObjectId(req.user.id) },
+      { read: true },
+      { new: true }
     );
 
-    if (!updated)
+    if (!updated) 
       throw ApiError.notFound('Notification not found');
 
-    res.json({ notification: 
+    res.json(
     {
-      _id: updated._id,
-      type: updated.type,
-      title: updated.title || (updated.type === 'message' ? 'New message' : 'Notification'),
-      text:  updated.text  || updated.meta?.text || '',
-      link:  updated.link  || updated.meta?.link || '',
-      read:  updated.read,
-      createdAt: updated.createdAt,
-      meta: updated.meta || {}
-    }});
+      notification: 
+      {
+        _id: updated._id,
+        type: updated.type,
+        title: updated.title || (updated.type === 'message' ? 'New message' : 'Notification'),
+        text:  updated.text  || updated.meta?.text || '',
+        link:  updated.link  || updated.meta?.link || '',
+        read:  updated.read,
+        createdAt: updated.createdAt,
+        meta: updated.meta || {}
+      }
+    });
   } catch (e) { next(e); }
 };
 
@@ -79,5 +83,6 @@ exports.markAllRead = async (req, res, next) =>
     const to = new mongoose.Types.ObjectId(req.user.id);
     const r = await Notification.updateMany({ to, read:false }, { $set:{ read:true } });
     res.json({ ok:true, modified: r.modifiedCount ?? r.nModified ?? 0 });
+    
   } catch (e) { next(e); }
 };
