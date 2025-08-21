@@ -146,8 +146,10 @@ MessageSchema.statics.listThread = async function(userId, peerId, bookId = null,
   return { items, total, page: pg, pages: Math.ceil(total / lim), conv: key };
 };
 
-MessageSchema.statics.send = function({ from, to, text, book = null }) {
-  return this.create({
+MessageSchema.statics.send = function({ from, to, text, book = null }) 
+{
+  return this.create(
+  {
     from, to, text,
     book: book || null,
     conv: convKey(from, to, book),
@@ -155,7 +157,8 @@ MessageSchema.statics.send = function({ from, to, text, book = null }) {
   });
 };
 
-MessageSchema.statics.markRead = async function(conv, userId) {
+MessageSchema.statics.markRead = async function(conv, userId) 
+{
   const uid = new mongoose.Types.ObjectId(userId);
   const res = await this.updateMany(
     { conv, to: uid, readBy: { $ne: uid } },
